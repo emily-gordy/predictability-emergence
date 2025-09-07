@@ -1,0 +1,8 @@
+__pycache__/*
+models/*
+data/*
+.vscode/*
+.DS_Store*
+*.csv
+*.nc
+*.pt
