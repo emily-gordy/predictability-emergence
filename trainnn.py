@@ -27,7 +27,7 @@ lonsel = 250
 ssp = "245" 
 
 historical_era = [1960,2000]
-tpercentile = 90
+tpercentile = 95
 
 inputlength = 10
 outputavgtime = 3
@@ -49,11 +49,11 @@ seedlist = [62469869,
             47621498,
             10431957,
             50561320,
-            634,
-            9465,
-            95735,
-            93846,
-            84750]
+            72166634,
+            18469465,
+            92895735,
+            57693846,
+            22284750]
 
 seed = seedlist[iseed]
 
@@ -86,6 +86,8 @@ params = {
 AllData = DataHolder.MPIInputOutput(params)
 
 # trainvaltest = [np.arange(25),np.arange(25,38),np.arange(38,50)]
+torch.manual_seed(seed)
+np.random.seed(seed)
 
 trainval = np.random.choice(ntrain+nval,ntrain+nval,replace=False)
 
@@ -204,13 +206,13 @@ classimbalance = outputtrain.mean(axis=0)
 
 weights = max(classimbalance)/classimbalance
 
-if classimbalance[0]<0.45:
+if classimbalance[0]<0.47:
 
     # weights = max(classimbalance)/classimbalance
     weights_corrected = [weights[0]-0.1,weights[1]]
     weights_corrected = torch.tensor(weights_corrected).to(device)
 
-elif classimbalance[0]>0.55:
+elif classimbalance[0]>0.53:
 
     # weights = max(classimbalance)/classimbalance
     weights_corrected = [weights[0],weights[1]-0.1]
@@ -222,7 +224,7 @@ else:
 loss_fn = nn.CrossEntropyLoss(weight=weights_corrected)
 
 valimbalance = outputval.mean(axis=0)
-print("val imbalance is "+ str(valimbalance[0]) + ":" + str(valimbalance[1]))
+print("val imbalance is "+ str(valimbalance[0].numpy()) + ":" + str(valimbalance[1].numpy()))
 
 # train the model
 
@@ -235,10 +237,6 @@ optimizer = optim.SGD(cnn.parameters(),
                 weight_decay=ridge_pen
                 )
 scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, threshold=1e-4, factor=0.1, patience=lr_patience, cooldown=lr_patience, min_lr=5e-6)
-
-
-torch.manual_seed(seed)
-np.random.seed(seed)
 
 loss = []
 
@@ -269,20 +267,18 @@ if len(filecheck)==0:
 
             print(f'Early stopping after {t+1} epochs.')
             break
-    
 
+cnn.load_state_dict(torch.load(fileout, weights_only=True))
 
-    cnn.load_state_dict(torch.load(fileout, weights_only=True))
+with torch.no_grad():
+    cnn.eval()
+    valpred = cnn(inputval.to(device), inputvalGMT.to(device))
 
-    with torch.no_grad():
-        cnn.eval()
-        valpred = cnn(inputval.to(device), inputvalGMT.to(device))
+valpred = valpred.detach().cpu().numpy()
 
-    valpred = valpred.detach().cpu().numpy()
+valpredclass = np.argmax(valpred,axis=1)
+valtrueclass = np.argmax(outputval.numpy(),axis=1)
 
-    valpredclass = np.sum(valpred,axis=1)
-    valtrueclass = np.sum(outputval.numpy(),axis=1)
-
-    valacc = np.mean(valpredclass==valtrueclass)
-    print("best accuracy = "+ str(valacc))
-    print("on a bg acc of "+ str(valimbalance[0]) + ":" + str(valimbalance[1]))
+valacc = np.mean(valpredclass==valtrueclass)
+print("best accuracy = "+ str(valacc))
+print("on a bg acc of "+ str(valimbalance[0].numpy()) + ":" + str(valimbalance[1].numpy()))
