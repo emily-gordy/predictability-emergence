@@ -18,7 +18,9 @@ import sys
 
 #%%
 
-# set user parameters
+iseed = int(sys.argv[1])
+
+#%% set user parameters
 
 latsel = 40
 lonsel = 250
@@ -26,7 +28,6 @@ ssp = "245"
 
 historical_era = [1960,2000]
 tpercentile = 90
-trainvaltest = [np.arange(25),np.arange(25,38),np.arange(38,50)]
 
 inputlength = 10
 outputavgtime = 3
@@ -39,9 +40,17 @@ inres = 4
 inputvar = 'tos'
 outputvar = 'tas'
 
+ntrain = 25
+nval = 13
+test = np.arange(38,50)
+
 seedlist = [62469869,
             71856281,
-            47621498,]
+            47621498,
+            10431957,
+            50561320]
+
+seed = seedlist[iseed]
 
 #%% some training params
 
@@ -52,7 +61,7 @@ lr_patience = 7
 early_stopping_patience = 20
 epochs = 2000
 
-#%% make parameter dictionary to be passed to DataHolder
+# make parameter dictionary to be passed to DataHolder
 
 params = {
     "inputlength": inputlength,
@@ -67,16 +76,22 @@ params = {
     "seedlist": seedlist,
 }
 
-#%% get the data
+# get the data
 
 AllData = DataHolder.MPIInputOutput(params)
+
+# trainvaltest = [np.arange(25),np.arange(25,38),np.arange(38,50)]
+
+trainval = np.random.choice(ntrain+nval,ntrain+nval,replace=False)
+
+trainvaltest = [trainval[:ntrain],trainval[ntrain:ntrain+nval],test]
 
 alltrain, allval, alltest = AllData.trainvaltest_binaryclassifier(trainvaltest, historical_era, inputlength, outputavgtime, tpercentile, latsel, lonsel)
 
 inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_onehot(alltrain,nclasses=2)
 inputval, inputvalGMT, outputval = DataHolder.tensortime_onehot(allval,nclasses=2)
 
-#%%
+
 
 def train_loop(dataloader, cnn, loss_fn, optimizer,device):
     
@@ -178,7 +193,7 @@ valdataset = TensorDataset(inputval,inputvalGMT,outputval)
 val_loader = DataLoader(valdataset,batch_size=inputval.size(0),shuffle=False) # all val in one batch maybe bad idea
 
 
-#%% lightly weight the class imbalance
+# lightly weight the class imbalance
 
 classimbalance = outputtrain.mean(axis=0)
 
@@ -201,59 +216,68 @@ else:
 
 loss_fn = nn.CrossEntropyLoss(weight=weights_corrected)
 
+valimbalance = outputval.mean(axis=0)
+print("val imbalance is "+ str(valimbalance[0]) + ":" + str(valimbalance[1]))
 
-#%% train the model
+# train the model
 
-for iseed, seed in enumerate(seedlist):
+# for iseed, seed in enumerate(seedlist):
 
-    cnn = buildmodel.CNNclassifier(inputtrain, inputtrainGMT, outputtrain).to(device)
+cnn = buildmodel.CNNclassifier(inputtrain, inputtrainGMT, outputtrain).to(device)
 
-    optimizer = optim.SGD(cnn.parameters(), 
-                    lr=lr,
-                    weight_decay=ridge_pen
-                    )
-    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, threshold=1e-4, factor=0.1, patience=lr_patience, cooldown=0, min_lr=5e-6)
+optimizer = optim.SGD(cnn.parameters(), 
+                lr=lr,
+                weight_decay=ridge_pen
+                )
+scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, threshold=1e-4, factor=0.1, patience=lr_patience, cooldown=lr_patience, min_lr=5e-6)
 
 
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+torch.manual_seed(seed)
+np.random.seed(seed)
 
-    loss = []
+loss = []
 
-    best_val_loss = np.inf
-    epochs_no_improve = 0
+best_val_loss = np.inf
+epochs_no_improve = 0
 
-    fileout = "models/"+filefront+"avgtime"+str(outputavgtime)+"_ssp"+ssp+"_per"+str(tpercentile)+"_lat"+str(latsel)+"_lon"+str(lonsel)+"_seed"+str(seed)+".pt"
+fileout = "models/"+filefront+"avgtime"+str(outputavgtime)+"_ssp"+ssp+"_per"+str(tpercentile)+"_lat"+str(latsel)+"_lon"+str(lonsel)+"_seed"+str(seed)+".pt"
 
-    print(f"class imbalance is {classimbalance[0]} to {classimbalance[1]}")
+print(f"class imbalance is {classimbalance[0]} to {classimbalance[1]}")
 
-    filecheck = glob.glob(fileout)
-    if len(filecheck)==0:
+filecheck = glob.glob(fileout)
+filecheck = []
+if len(filecheck)==0:
 
-        print('train loop')
-        for t in range(epochs):
-            print(f"Epoch {t+1}\n-------------------------------")
-            time1 = time.time()
+    print('train loop')
+    for t in range(epochs):
+        print(f"Epoch {t+1}\n-------------------------------")
+        time1 = time.time()
 
-            train_loop(train_loader, cnn, loss_fn, optimizer, device)
-            valid_loss = val_loop(val_loader, cnn, loss_fn, optimizer, scheduler, device)
+        train_loop(train_loader, cnn, loss_fn, optimizer, device)
+        valid_loss = val_loop(val_loader, cnn, loss_fn, optimizer, scheduler, device)
 
-            loss.append(valid_loss)
-            time2 = time.time()
-            print(f"{time2-time1:4f} seconds per epoch")
-            best_val_loss, earlystopping, epochs_no_improve = model_checkpoint(cnn,valid_loss,best_val_loss,epochs_no_improve,fileout,early_stopping_patience)
-            if earlystopping==1:
+        loss.append(valid_loss)
+        time2 = time.time()
+        print(f"{time2-time1:4f} seconds per epoch")
+        best_val_loss, earlystopping, epochs_no_improve = model_checkpoint(cnn,valid_loss,best_val_loss,epochs_no_improve,fileout,early_stopping_patience)
+        if earlystopping==1:
 
-                print(f'Early stopping after {t+1} epochs.')
-                break
+            print(f'Early stopping after {t+1} epochs.')
+            break
+    
 
-        # cnn.load_state_dict(torch.load(fileout, weights_only=True))
 
-        # with torch.no_grad():
-        #     cnn.eval()
-        #     valpred = cnn(inputval.to(device), inputvalGMT.to(device))
+    cnn.load_state_dict(torch.load(fileout, weights_only=True))
 
-        # valpred = valpred.detach().cpu().numpy()
+    with torch.no_grad():
+        cnn.eval()
+        valpred = cnn(inputval.to(device), inputvalGMT.to(device))
 
-        # valpredclass = np.sum(valpred,axis=1)
-        # valtrueclass = np.sum(outputval.numpy(),axis=1)
+    valpred = valpred.detach().cpu().numpy()
+
+    valpredclass = np.sum(valpred,axis=1)
+    valtrueclass = np.sum(outputval.numpy(),axis=1)
+
+    valacc = np.mean(valpredclass==valtrueclass)
+    print("best accuracy = "+ str(valacc))
+    print("on a bg acc of "+ str(valimbalance[0]) + ":" + str(valimbalance[1]))
