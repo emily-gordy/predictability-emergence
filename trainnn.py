@@ -24,7 +24,8 @@ iseed = int(sys.argv[1])
 
 latsel = 40
 lonsel = 250
-ssp = "245" 
+
+ssplist = ["126","245","370","585"]
 
 historical_era = [1960,2000]
 tpercentile = 95
@@ -59,7 +60,7 @@ seed = seedlist[iseed]
 
 #%% some training params
 
-batch_size = 64
+batch_size = 128
 lr = 0.001
 ridge_pen = 1e-6
 lr_patience = 7
@@ -72,7 +73,6 @@ params = {
     "inputlength": inputlength,
     "outputavgtime": outputavgtime,
     "outres": outres,
-    "ssp": ssp,
     "timerange": timerange,
     "filefront": filefront,
     "inres": inres,
@@ -83,7 +83,7 @@ params = {
 
 # get the data
 
-AllData = DataHolder.MPIInputOutput(params)
+AllData = DataHolder.MPIInputOutput_SSPlist(params,ssplist)
 
 # trainvaltest = [np.arange(25),np.arange(25,38),np.arange(38,50)]
 torch.manual_seed(seed)
@@ -243,7 +243,7 @@ loss = []
 best_val_loss = np.inf
 epochs_no_improve = 0
 
-fileout = "models/"+filefront+"avgtime"+str(outputavgtime)+"_ssp"+ssp+"_per"+str(tpercentile)+"_lat"+str(latsel)+"_lon"+str(lonsel)+"_seed"+str(seed)+".pt"
+fileout = "models/"+filefront+"avgtime"+str(outputavgtime)+"_allssps_per"+str(tpercentile)+"_lat"+str(latsel)+"_lon"+str(lonsel)+"_seed"+str(seed)+".pt"
 
 print(f"class imbalance is {classimbalance[0]} to {classimbalance[1]}")
 
