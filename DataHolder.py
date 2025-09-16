@@ -446,8 +446,8 @@ class MPIInputOutput_SSPlist:
         # make each sample anomaly from historical era mean
         inputgmtmean = np.mean(gmt_hist[:,historicalinds[0]:historicalinds[1]],axis=1,keepdims=True)
         
-        print('checking size of inputgmtmean')
-        print(str(inputgmtmean.shape))
+        # print('checking size of inputgmtmean')
+        # print(str(inputgmtmean.shape))
 
         inputgmtanom = gmt_hist-inputgmtmean
         # stack it
@@ -482,8 +482,8 @@ class MPIInputOutput_SSPlist:
 
         allsummer.append(avgsummer)
 
-        print('checking size of onesigmas')
-        print(str(onesigmas.shape))
+        # print('checking size of onesigmas')
+        # print(str(onesigmas.shape))
 
         # reshape it to 2D
         outputtrainfull = np.reshape(onesigmasummer[trainvaltest[0]], (len(trainvaltest[0]) * onesigmasummer.shape[1], 1))
@@ -496,7 +496,7 @@ class MPIInputOutput_SSPlist:
 
         for issp, ssp in enumerate(self.ssplist):
 
-            print('working on ' + ssp)
+            # print('working on ' + ssp)
             
             MPIfuture = [endhist-timevecfull[0]-self.inputlength,endind]
 
@@ -585,6 +585,35 @@ class MPIInputOutput_SSPlist:
 
         return [inputtrainfull,  inputtrainGMTfull, outputtrainfull,], [inputvalfull, inputvalGMTfull, outputvalfull,], [inputtestfull, inputtestGMTfull,  outputtestfull] 
 
+
+    def calculate_nulls(self,trainvaltest):
+        
+        onesigmas = self.onesigmas
+
+        summerloop = self.truesummer[0]
+        summerboo = 1*(summerloop>onesigmas[:,np.newaxis])
+
+        meanpred = np.mean(summerboo[trainvaltest[0]],axis=0)
+        gmtpred = np.round(meanpred)
+
+        nullval = np.tile(gmtpred,(len(trainvaltest[1])))
+        nulltest = np.tile(gmtpred,(len(trainvaltest[2])))
+
+        for issp in range(len(self.ssplist)):
+
+            summerloop = self.truesummer[issp+1]
+            summerboo = 1*(summerloop>onesigmas[:,np.newaxis])
+
+            meanpred = np.mean(summerboo[trainvaltest[0]],axis=0)
+            gmtpred = np.round(meanpred)
+
+            gmtpredval = np.tile(gmtpred,(len(trainvaltest[1])))
+            gmtpredtest = np.tile(gmtpred,(len(trainvaltest[2])))
+
+            nullval = np.append(nullval,gmtpredval,axis=0)
+            nulltest = np.append(nulltest,gmtpredtest,axis=0)
+        
+        return nullval,nulltest
 
 
 def tensortime_multihot(listofmatrices):
