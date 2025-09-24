@@ -6,7 +6,7 @@ import sys
 # inputlength = 10
 # outputavgtime = 3
 outres = 10
-timerange = [1950,2080]
+timerange = [1900,2100]
 filefront = "MPI_"
 inres = 4
 inputvar = 'tos'

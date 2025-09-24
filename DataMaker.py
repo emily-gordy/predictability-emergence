@@ -20,7 +20,7 @@ class GriddedMPISummer:
         var = params["outputvar"]
 
         # fileout = "data/"+ var + "MPI_regridded_summertime_"+str(outres)+"x"+str(outres)+".pkl"
-        fileout = "data/" + filefront +"summertime_" + ssp + "_" + var + ".pkl"
+        fileout = "data/" + filefront +"summertime_" + ssp + "_" + var + "_"+str(timerange[0])+"-"+str(timerange[1])+".pkl"
         filecheck = glob.glob(fileout)
 
         if len(filecheck)==0:
@@ -112,7 +112,7 @@ class GriddedMPIAnnualMean:
         filefront = params["filefront"]
         var = params["inputvar"]
 
-        fileout = "data/" + filefront +"annualmean_" + ssp + "_" + var + ".pkl"
+        fileout = "data/" + filefront +"annualmean_" + ssp + "_" + var + "_"+str(timerange[0])+"-"+str(timerange[1])+".pkl"
         filecheck = glob.glob(fileout)
 
         if len(filecheck)==0:
@@ -155,7 +155,7 @@ class MPIGlobalMeanTemperature:
         timerange = params["timerange"]
         filefront = params["filefront"]
 
-        fileout = "data/" + filefront +"annualmeanGMT_" + ssp + "_" + ".pkl"
+        fileout = "data/" + filefront +"annualmeanGMT_" + ssp + "_"+str(timerange[0])+"-"+str(timerange[1])+".pkl"
         filecheck = glob.glob(fileout)
 
         if len(filecheck)==0:

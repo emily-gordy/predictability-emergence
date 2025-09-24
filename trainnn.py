@@ -27,16 +27,20 @@ lonsel = 250
 
 ssplist = ["126","245","370","585"]
 
-historical_era = [1960,2000]
-tpercentile = 95
+# historical_era = [1960,2000]
+# tpercentile = 95
+
+experiment_era = [1950,2100]
+baselineera = [1900,1950]
 
 inputlength = 10
 outputavgtime = 3
 
 # data params
 outres = 10
-timerange = [1950,2080]
+timerange = [1900,2100]
 filefront = "MPI_"
+modelfilefront = "MPI_recordtemp_"
 inres = 4
 inputvar = 'tos'
 outputvar = 'tas'
@@ -93,12 +97,10 @@ trainval = np.random.choice(ntrain+nval,ntrain+nval,replace=False)
 
 trainvaltest = [trainval[:ntrain],trainval[ntrain:ntrain+nval],test]
 
-alltrain, allval, alltest = AllData.trainvaltest_binaryclassifier(trainvaltest, historical_era, inputlength, outputavgtime, tpercentile, latsel, lonsel)
+alltrain, allval, alltest = AllData.trainvaltest_recordmax(trainvaltest,experiment_era,baselineera,inputlength,outputavgtime,latsel,lonsel)
 
 inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_onehot(alltrain,nclasses=2)
 inputval, inputvalGMT, outputval = DataHolder.tensortime_onehot(allval,nclasses=2)
-
-
 
 def train_loop(dataloader, cnn, loss_fn, optimizer,device):
     
@@ -243,7 +245,7 @@ loss = []
 best_val_loss = np.inf
 epochs_no_improve = 0
 
-fileout = "models/"+filefront+"avgtime"+str(outputavgtime)+"_allssps_per"+str(tpercentile)+"_lat"+str(latsel)+"_lon"+str(lonsel)+"_seed"+str(seed)+".pt"
+fileout = "models/"+modelfilefront+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(latsel)+"_lon"+str(lonsel)+"_seed"+str(seed)+".pt"
 
 print(f"class imbalance is {classimbalance[0]} to {classimbalance[1]}")
 
