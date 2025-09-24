@@ -65,7 +65,7 @@ seed = seedlist[iseed]
 #%% some training params
 
 batch_size = 128
-lr = 0.001
+lr = 0.01
 ridge_pen = 1e-6
 lr_patience = 7
 early_stopping_patience = 20
@@ -211,17 +211,19 @@ weights = max(classimbalance)/classimbalance
 if classimbalance[0]<0.47:
 
     # weights = max(classimbalance)/classimbalance
-    weights_corrected = [weights[0]-0.1,weights[1]]
+    weights_corrected = [weights[0]-0.5*weights[0],weights[1]]
     weights_corrected = torch.tensor(weights_corrected).to(device)
 
 elif classimbalance[0]>0.53:
 
     # weights = max(classimbalance)/classimbalance
-    weights_corrected = [weights[0],weights[1]-0.1]
+    weights_corrected = [weights[0],weights[1]-0.5*weights[1]]
     weights_corrected = torch.tensor(weights_corrected).to(device)
 
 else:
     weights_corrected = torch.tensor([1,1]).to(device)
+
+print(weights_corrected)
 
 loss_fn = nn.CrossEntropyLoss(weight=weights_corrected)
 
