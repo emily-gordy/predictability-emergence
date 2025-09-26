@@ -1,11 +1,9 @@
 #%%
 
-import DataMaker
 import DataHolder
 import buildmodel
 
 import importlib as imp
-import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
@@ -351,7 +349,7 @@ def objective(trial):
 #%%
 
 study = optuna.create_study(direction='minimize')
-study.optimize(objective, n_trials=50)
+study.optimize(objective, n_trials=30)
 
 df = study.trials_dataframe()
 df.to_csv("models/optuna_trials.csv", index=False)
