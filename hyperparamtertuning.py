@@ -346,7 +346,8 @@ study = optuna.create_study(direction='minimize')
 study.optimize(objective, n_trials=30)
 
 df = study.trials_dataframe()
-df.to_csv("models/optuna_trials.csv", index=False)
+fileout = "models/optuna_trials" + str(seed)+".csv"
+df.to_csv(fileout, index=False)
 print("Trial data saved to optuna_trials.csv")
 
 best_trial = study.best_trial
