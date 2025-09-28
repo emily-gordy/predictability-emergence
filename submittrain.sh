@@ -1,8 +1,8 @@
 #!/bin/bash
 
-#SBATCH --job-name=hp_tune
-#SBATCH --error=/nesi/nobackup/uoa04506/job_output/hp_tune.err
-#SBATCH --output=/nesi/nobackup/uoa04506/job_output/hp_tune.out
+#SBATCH --job-name=trainnn
+#SBATCH --error=/nesi/nobackup/uoa04506/job_output/trainnn_%a.err
+#SBATCH --output=/nesi/nobackup/uoa04506/job_output/trainnn_%a.out
 #SBATCH --ntasks=1
 #SBATCH --array=0-9
 #SBATCH --gpus-per-task=A100:1
@@ -18,4 +18,4 @@ module load PyTorch/1.12.1-gimkl-2022a-Python-3.10.5-CUDA-11.6.2
 
 cd /nesi/nobackup/uoa04506/predictability-emergence/
 
-python3 -u hyperparametertuning.py $SLURM_ARRAY_TASK_ID
+python3 -u trainnn.py $SLURM_ARRAY_TASK_ID
