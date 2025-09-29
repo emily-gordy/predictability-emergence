@@ -20,15 +20,12 @@ import sys
 
 iseed = int(sys.argv[1])
 
-#%% set user parameters
+# set user parameters
 
 latsel = 40
 lonsel = 250
 
 ssplist = ["126","245","370","585"]
-
-# historical_era = [1960,2000]
-# tpercentile = 95
 
 experiment_era = [1950,2100]
 baselineera = [1900,1950]
@@ -62,7 +59,7 @@ seedlist = [62469869,
 
 seed = seedlist[iseed]
 
-#%% some training params
+# some training params
 
 batch_size = 128
 lr = 0.01
@@ -88,19 +85,6 @@ params = {
 # get the data
 
 AllData = DataHolder.MPIInputOutput_SSPlist(params,ssplist)
-
-# trainvaltest = [np.arange(25),np.arange(25,38),np.arange(38,50)]
-torch.manual_seed(seed)
-np.random.seed(seed)
-
-trainval = np.random.choice(ntrain+nval,ntrain+nval,replace=False)
-
-trainvaltest = [trainval[:ntrain],trainval[ntrain:ntrain+nval],test]
-
-alltrain, allval, alltest = AllData.trainvaltest_recordmax(trainvaltest,experiment_era,baselineera,inputlength,outputavgtime,latsel,lonsel)
-
-inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_onehot(alltrain,nclasses=2)
-inputval, inputvalGMT, outputval = DataHolder.tensortime_onehot(allval,nclasses=2)
 
 def train_loop(dataloader, cnn, loss_fn, optimizer,device):
     
@@ -130,8 +114,6 @@ def val_loop(dataloader, model, loss_fn, optimizer, scheduler, device):
         # Set the model to evaluation mode - important for batch normalization and dropout layers
         # Unnecessary in this situation but added for best practices
         model.eval()
-        size = len(dataloader.dataset)
-        num_batches = len(dataloader)
 
         all_pred = []
         all_true = []
@@ -184,7 +166,7 @@ def model_checkpoint(model,val_loss,best_val_loss,epochs_no_improve,fileout,pati
     
     return best_val_loss, earlystopping, epochs_no_improve
 
-#%% set device
+# set device
 
 if torch.cuda.is_available():
     device = 'cuda'
@@ -194,6 +176,21 @@ else:
     device='cpu'
 
 print(f"Using device: {device}")
+
+# for ilatsel,latsel in enumerate(latvec):
+#   for ilonsel,lonsel in enumerare(lonvec):
+
+torch.manual_seed(seed)
+np.random.seed(seed)
+
+trainval = np.random.choice(ntrain+nval,ntrain+nval,replace=False)
+
+trainvaltest = [trainval[:ntrain],trainval[ntrain:ntrain+nval],test]
+
+alltrain, allval, alltest = AllData.trainvaltest_recordmax(trainvaltest,experiment_era,baselineera,inputlength,outputavgtime,latsel,lonsel)
+
+inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_onehot(alltrain,nclasses=2)
+inputval, inputvalGMT, outputval = DataHolder.tensortime_onehot(allval,nclasses=2)
 
 traindataset = TensorDataset(inputtrain,inputtrainGMT,outputtrain)
 train_loader = DataLoader(traindataset,batch_size=batch_size,shuffle=True)
@@ -205,7 +202,6 @@ val_loader = DataLoader(valdataset,batch_size=inputval.size(0),shuffle=False) # 
 # lightly weight the class imbalance
 
 classimbalance = outputtrain.mean(axis=0)
-
 weights = max(classimbalance)/classimbalance
 
 if classimbalance[0]<0.47:
@@ -231,8 +227,6 @@ valimbalance = outputval.mean(axis=0)
 print("val imbalance is "+ str(valimbalance[0].numpy()) + ":" + str(valimbalance[1].numpy()))
 
 # train the model
-
-# for iseed, seed in enumerate(seedlist):
 
 cnn = buildmodel.CNNclassifier(inputtrain, inputtrainGMT, outputtrain).to(device)
 
