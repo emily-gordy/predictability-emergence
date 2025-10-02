@@ -1,4 +1,4 @@
-
+#%%
 import DataMaker
 import sys
 
@@ -11,7 +11,7 @@ filefront = "MPI_"
 inres = 4
 inputvar = 'tos'
 outputvar = 'tas'
-
+preciproll = 12
 # user defined ssp
 ssp = str(sys.argv[1])
 
@@ -25,8 +25,12 @@ params = {
     "inres": inres,
     "inputvar":inputvar,
     "outputvar":outputvar,
+    "preciproll":preciproll,
 }
 
-AllInputData = DataMaker.GriddedMPIAnnualMean(params)
-AllOutputData = DataMaker.GriddedMPISummer(params)
-AllGMTData = DataMaker.MPIGlobalMeanTemperature(params)
+# AllInputData = DataMaker.GriddedMPIAnnualMean(params)
+# AllOutputData = DataMaker.GriddedMPISummer(params)
+AllOutputpr = DataMaker.GriddedMPIPrecip(params)
+# AllGMTData = DataMaker.MPIGlobalMeanTemperature(params)
+
+# %%

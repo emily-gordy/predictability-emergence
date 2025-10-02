@@ -103,6 +103,89 @@ class GriddedMPISummer:
             
         self.summerdata = summer_mean
 
+class GriddedMPIPrecip:
+    def __init__(self,params):
+
+        outres = params["outres"]
+        ssp = params["ssp"] 
+        timerange = params["timerange"]
+        filefront = params["filefront"]
+        var = "pr"
+        preciproll = params["preciproll"]
+
+        # fileout = "data/"+ var + "MPI_regridded_summertime_"+str(outres)+"x"+str(outres)+".pkl"
+        fileout = "data/" + filefront + ssp + "_" + var + "_roll"+str(preciproll)+"_" +str(timerange[0])+"-"+str(timerange[1])+".pkl"
+        filecheck = glob.glob(fileout)
+        
+        if len(filecheck)==0:
+
+            print('starting regrid')
+            time1 = time.time()
+
+            alldata_in = pulldata(var,ssp)
+
+            allrolling = alldata_in.rolling(time=preciproll).mean() # rolling mean over the "preciproll" period
+
+            latvec = np.arange(-90,90,10)
+            lonvec = np.arange(0,360,10)
+
+            all_rolling = allrolling.sel(time=slice(str(timerange[0]),str(timerange[1])))
+
+            indims = all_rolling.shape
+            outdims = (indims[0],indims[1],len(latvec),len(lonvec))
+
+            # mask
+
+            sstdata = pulldata("tos","ssp245")
+
+            oceanmask = sstdata.isel(time=0,variant=0)
+            oceanmask = xr.where(np.isnan(oceanmask),1,0)
+
+            all_rolling_masked = all_rolling.where(oceanmask==1)
+            print('rolling')
+
+            all_rolling_mean = np.empty(outdims)
+
+            for ilat,lat in enumerate(latvec):
+                print("working on latitude="+str(lat))
+                for ilon, lon in enumerate(lonvec):
+
+                    # nanmean but only for boxes with >25% land coverage
+                    maskmean = np.mean(oceanmask.sel(lat=slice(lat,lat+outres),lon=slice(lon,lon+outres)))
+
+                    if maskmean>0.5:
+                        
+                        all_rolling_slice = all_rolling_masked.sel(lat=slice(lat,lat+outres),lon=slice(lon,lon+outres))
+                        # weight
+                        weights = np.cos(np.deg2rad(all_rolling_slice.lat))
+
+                        all_rolling_mean[:,:,ilat,ilon] = np.asarray(all_rolling_slice.weighted(weights).mean(dim=("lat","lon"),skipna=True))
+
+                    else:
+                        all_rolling_mean[:,:,ilat,ilon] = np.nan
+
+            self.lat = latvec
+            self.lon = lonvec
+
+            time2 = time.time()
+
+            print(f"{time2-time1:4f} seconds for " + ssp)
+        
+            with open(fileout,"wb") as f:
+                pickle.dump([all_rolling_mean,latvec,lonvec],f)
+        
+        else:
+            print("output data done")
+            with open(fileout,"rb") as f:
+                allall = pickle.load(f)
+
+                all_rolling_mean = allall[0]
+                self.lat = allall[1]
+                self.lon = allall[2]
+            
+        self.all_rolling_mean = all_rolling_mean
+
+
 class GriddedMPIAnnualMean:
     def __init__(self,params):
         
