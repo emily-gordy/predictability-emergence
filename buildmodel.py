@@ -12,10 +12,10 @@ class CNNordinalclassifier(nn.Module):
         out_size = out_data.size(-1)
         self.inputshape1 = in_data1.size()
         self.inputshape2 = in_data2.size()
-        self.n_filters = [16,16,16]
+        self.n_filters = [32,32]
         self.kernel_size = [3,3,3]
         self.pool_width = [2,2,2]
-        self.hiddens = [100,50]
+        self.hiddens = [150,80,70]
 
         self.conv1 = self.convblock(self.inputshape1[1],self.n_filters[0],self.kernel_size[0],self.pool_width[0])
 

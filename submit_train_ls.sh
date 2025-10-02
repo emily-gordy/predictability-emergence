@@ -17,14 +17,4 @@ module purge
 # path to the singularity image file (optionally replace with your own)
 SIF=/opt/nesi/containers/lambda-stack/lambda-stack-focal-latest.sif
 
-apptainer exec --nv -B ${PWD} ${SIF} python3 -u trainnn.py $SLURM_ARRAY_TASK_ID
-
-
-
-# module load Python/3.10.5-gimkl-2022a
-# module load CUDA/12.1.1
-# module load PyTorch/1.12.1-gimkl-2022a-Python-3.10.5-CUDA-11.6.2
-
-# cd /nesi/nobackup/uoa04506/predictability-emergence/
-
-# python3 -u trainnn.py $SLURM_ARRAY_TASK_ID
+apptainer exec --nv -B ${SIF} ${PWD} python3 -u trainnn.py $SLURM_ARRAY_TASK_ID
