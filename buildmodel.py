@@ -243,24 +243,28 @@ class CNNclassifier(nn.Module):
 
         # filterlist.append(num_filters)
         self.conv_layers.append(nn.Conv2d(in_channels=self.inputshape1[1], out_channels=num_filters, kernel_size=3, padding=1))
-        self.conv_layers.append(nn.ReLU())
-        self.conv_layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
+        # self.conv_layers.append(nn.BatchNorm2d(num_filters))
+        self.conv_layers.append(nn.Sigmoid())
+        self.conv_layers.append(nn.AvgPool2d(kernel_size=2, stride=2))
 
         for i in range(num_conv_blocks-1):
 
             self.conv_layers.append(nn.Conv2d(in_channels=num_filters, out_channels=num_filters, kernel_size=3, padding=1))
-            self.conv_layers.append(nn.ReLU())
-            self.conv_layers.append(nn.MaxPool2d(kernel_size=2, stride=2))
+            # self.conv_layers.append(nn.BatchNorm2d(num_filters))
+            self.conv_layers.append(nn.Sigmoid())
+            self.conv_layers.append(nn.AvgPool2d(kernel_size=2, stride=2))
         
         self.flatten = nn.Flatten()
         
         self.linear_layers = nn.ModuleList()
 
         self.linear_layers.append(nn.Linear(in_features=self.get_flatten_size()+1, out_features=hiddens[0]))
+        # self.linear_layers.append(nn.BatchNorm1d(num_features=hiddens[0]))
         self.linear_layers.append(nn.ReLU())
         
         for i in range(len(hiddens)-1):   
-            self.linear_layers.append(nn.Linear(in_features=hiddens[i], out_features=hiddens[i+1]))         
+            self.linear_layers.append(nn.Linear(in_features=hiddens[i], out_features=hiddens[i+1]))
+            # self.linear_layers.append(nn.BatchNorm1d(num_features=hiddens[i+1]))  
             self.linear_layers.append(nn.ReLU())
 
         self.output_layer = nn.Linear(in_features=hiddens[-1], out_features=out_size)
@@ -276,12 +280,12 @@ class CNNclassifier(nn.Module):
         
     def forward(self, x1,x2):
         x = self.conv_layers[0](x1)
-        for layer in self.conv_layers[1:]:
-            x = layer(x)
+        for clayer in self.conv_layers[1:]:
+            x = clayer(x)
         x = self.flatten(x)
         x = torch.cat((x, x2), dim=1)
-        for layer in self.linear_layers:
-            x = layer(x)
+        for dlayer in self.linear_layers:
+            x = dlayer(x)
         x = self.output_layer(x)
         out = self.softmax(x)
         return out

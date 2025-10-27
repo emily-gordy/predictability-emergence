@@ -653,7 +653,7 @@ class MPIInputOutput_SSPlist:
         cutinput = stackedinput[:,:-1*(self.outputavgtime)]
         # control for season
         if self.season==2:
-            cutinput = cutinput[:,-1]
+            cutinput = cutinput[:,:-1]
         # remove mean from sample dimension
         inputmean = np.mean(cutinput,axis=2,keepdims=True)
         anominput = cutinput-inputmean
@@ -681,7 +681,7 @@ class MPIInputOutput_SSPlist:
         cutgmt = stackedgmt[:,:-1*(self.outputavgtime)]
         # control for season
         if self.season==2:
-            cutgmt = cutgmt[:,-1]
+            cutgmt = cutgmt[:,:-1]
         # average over sample dimension but keep that dimension
         avggmt = np.mean(cutgmt,axis=2,keepdims=True)
         # reshape it to 2D
@@ -754,7 +754,7 @@ class MPIInputOutput_SSPlist:
             cutinput = stackedinput[:,:-1*(self.outputavgtime)]
             # control for season
             if self.season==2:
-                cutinput = cutinput[:,-1]
+                cutinput = cutinput[:,:-1]
             # remove mean from sample dimension
             inputmean = np.mean(cutinput,axis=2,keepdims=True)
             anominput = cutinput-inputmean
@@ -782,7 +782,7 @@ class MPIInputOutput_SSPlist:
             cutgmt = stackedgmt[:,:-1*(self.outputavgtime)]
             # control for season
             if self.season==2:
-                cutgmt = cutgmt[:,-1]
+                cutgmt = cutgmt[:,:-1]
             # average over sample dimension but keep that dimension
             avggmt = np.mean(cutgmt,axis=2,keepdims=True)
 

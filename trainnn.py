@@ -11,6 +11,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 import torch.optim as optim
 import torch.optim.lr_scheduler as lr_scheduler
+import torch.nn.functional as F
 import time
 
 import glob
@@ -19,11 +20,18 @@ import sys
 #%%
 
 iseed = int(sys.argv[1])
-
+# iseed =9 
 # set user parameters
 
+# preferably these would be loop variables i.e.
+
+# for ilatsel,latsel in enumerate(latvec):
+#    for ilonsel,lonsel in enumerate(lonvec):
+
 latsel = 40
-lonsel = 250
+lonsel = 10
+
+#%%
 
 ssplist = ["126","245","370","585"]
 
@@ -89,8 +97,7 @@ AllData = DataHolder.MPIInputOutput_SSPlist(params,ssplist)
 def train_loop(dataloader, cnn, loss_fn, optimizer,device):
     
     size = len(dataloader.dataset)
-    # Set the model to training mode - important for batch normalization and dropout layers
-    # Unnecessary in this situation but added for best practices
+
     cnn.train()
     for batch, (x1,x2,y) in enumerate(dataloader):
 
@@ -166,6 +173,48 @@ def model_checkpoint(model,val_loss,best_val_loss,epochs_no_improve,fileout,pati
     
     return best_val_loss, earlystopping, epochs_no_improve
 
+class FocalLoss(nn.Module):
+    def __init__(self, weights=[1,1], gamma=2, reduction='mean'):
+        """
+        Focal Loss implementation for multi-class classification
+        
+        Args:
+            alpha (float): Weighting factor for rare class (default: 1)
+            gamma (float): Focusing parameter (default: 2)
+            reduction (str): Specifies the reduction to apply to the output:
+                           'none' | 'mean' | 'sum' (default: 'mean')
+        """
+        super(FocalLoss, self).__init__()
+        self.weights = weights
+        self.gamma = gamma
+        self.reduction = reduction
+        
+    def forward(self, inputs, targets):
+        """
+        Args:
+            inputs: A float tensor of shape [batch_size, num_classes]
+                   (raw logits from model)
+            targets: A long tensor of shape [batch_size]
+                    (ground truth class indices)
+        """
+        # Compute cross entropy
+        # ce_loss = F.cross_entropy(inputs, targets, reduction='none')
+
+        focal_loss_noreduce = -1* self.weights * (1-inputs)**self.gamma * targets * torch.log(inputs) 
+        focal_loss = focal_loss_noreduce.mean()
+        # # Compute probabilities
+        # pt = torch.exp(-ce_loss)
+        
+        # # Compute focal loss
+        # focal_loss = self.alpha * (1 - pt) ** self.gamma * ce_loss
+        
+        # if self.reduction == 'mean':
+        #     return focal_loss.mean()
+        # elif self.reduction == 'sum':
+        #     return focal_loss.sum()
+        # else:
+        return focal_loss
+
 # set device
 
 if torch.cuda.is_available():
@@ -219,9 +268,12 @@ elif classimbalance[0]>0.53:
 else:
     weights_corrected = torch.tensor([1,1]).to(device)
 
+weights_corrected = weights_corrected/torch.max(weights_corrected)
 print(weights_corrected)
 
-loss_fn = nn.CrossEntropyLoss(weight=weights_corrected)
+# loss_fn = nn.CrossEntropyLoss(weight=weights_corrected)
+
+loss_fn = FocalLoss(weights=weights_corrected,gamma=2)
 
 valimbalance = outputval.mean(axis=0)
 print("val imbalance is "+ str(valimbalance[0].numpy()) + ":" + str(valimbalance[1].numpy()))
@@ -280,3 +332,5 @@ valtrueclass = np.argmax(outputval.numpy(),axis=1)
 valacc = np.mean(valpredclass==valtrueclass)
 print("best accuracy = "+ str(valacc))
 print("on a bg acc of "+ str(valimbalance[0].numpy()) + ":" + str(valimbalance[1].numpy()))
+
+# %%
