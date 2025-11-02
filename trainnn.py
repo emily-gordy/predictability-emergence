@@ -4,7 +4,7 @@ import DataHolder
 import buildmodel
 
 import importlib as imp
-import matplotlib.pyplot as plt
+#import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
@@ -239,12 +239,14 @@ class FocalLoss(nn.Module):
 
 # set device
 
-if torch.cuda.is_available():
-    device = 'cuda'
-elif torch.backends.mps.is_available() & torch.backends.mps.is_built():
-    device = 'mps'
-else:
-    device='cpu'
+#if torch.cuda.is_available():
+#    device = 'cuda'
+#elif torch.backends.mps.is_available() & torch.backends.mps.is_built():
+#    device = 'mps'
+#else:
+#    device='cpu'
+
+device = 'cpu'
 
 print(f"Using device: {device}")
 
@@ -261,8 +263,8 @@ trainvaltest = [trainval[:ntrain],trainval[ntrain:ntrain+nval],test]
 alltrain, allval, alltest = AllData.trainvaltest_recordmax(trainvaltest,experiment_era,baselineera,inputlength,outputavgtime,latsel,lonsel)
 # trainvaltest,historicalera,inputlength,outputlength,tpercentile,latsel,lonsel
 
-inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_onehot(alltrain,nclasses=2)
-inputval, inputvalGMT, outputval = DataHolder.tensortime_onehot(allval,nclasses=2)
+inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_classindex(alltrain,nclasses=2)
+inputval, inputvalGMT, outputval = DataHolder.tensortime_classindex(allval,nclasses=2)
 
 traindataset = TensorDataset(inputtrain,inputtrainGMT,outputtrain)
 train_loader = DataLoader(traindataset,batch_size=batch_size,shuffle=True)
@@ -276,7 +278,7 @@ binprobs,bins = GMTexprob(inputtrainGMT.numpy(),outputtrain.numpy())
 imp.reload(buildmodel)
 # lightly weight the class imbalance
 
-classimbalance = outputtrain.mean(axis=0)
+classimbalance = outputtrain.mean()
 weights = max(classimbalance)/classimbalance
 
 if classimbalance[0]<0.47:
@@ -361,7 +363,7 @@ print("on a bg acc of "+ str(valimbalance[0].numpy()) + ":" + str(valimbalance[1
 
 # %%
 
-plt.scatter(inputvalGMT.numpy().squeeze(),valpred[:,1],marker='.')
-plt.plot(bins[:-1]+0.025,binprobs)
+#plt.scatter(inputvalGMT.numpy().squeeze(),valpred[:,1],marker='.')
+#plt.plot(bins[:-1]+0.025,binprobs)
 
 # %%

@@ -17,4 +17,9 @@ module purge
 # path to the singularity image file (optionally replace with your own)
 SIF=/opt/nesi/containers/lambda-stack/lambda-stack-focal-latest.sif
 
-apptainer exec --nv -B ${SIF} ${PWD} python3 -u trainnn.py $SLURM_ARRAY_TASK_ID
+SINGULARITY="singularity exec --nv -B ${PWD} ${SIF}"
+
+${SINGULARITY} python3 -c "import torch; print('torch version', torch.__version__)"
+${SINGULARITY} python3 -c "import torch; print('num devices', torch.cuda.device_count())"
+
+${SINGULARITY} python3 -u trainnn.py $SLURM_ARRAY_TASK_ID

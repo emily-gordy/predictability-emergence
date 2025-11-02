@@ -1273,6 +1273,21 @@ def tensortime_onehot(listofmatrices,nclasses=6):
 
     return inputdata_t, inputgmt_t, outputdata_t
 
+def tensortime_classindex(listofmatrices,nclasses=6):
+
+    inputdata = listofmatrices[0]
+    inputgmt = listofmatrices[1]
+    outputdata = listofmatrices[2]
+
+    inputdata_t = torch.tensor(inputdata,dtype=torch.float32)
+    inputgmt_t = torch.tensor(inputgmt,dtype=torch.float32)
+
+    outputdata_t = torch.tensor(outputdata.squeeze(),dtype=torch.int64)
+    #outputonehotencoded = one_hot(outputdata, num_classes=nclasses) 
+    #outputdata_t = torch.tensor(outputonehotencoded,dtype=torch.float32)
+
+    return inputdata_t, inputgmt_t, outputdata_t
+
 def tensortime_regression(listofmatrices):
 
     inputdata = listofmatrices[0]
