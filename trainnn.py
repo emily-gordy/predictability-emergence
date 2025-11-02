@@ -17,11 +17,10 @@ import time
 import glob
 import sys
 
-#%%
+#%% 
 
 iseed = int(sys.argv[1])
-# iseed =9 
-# set user parameters
+# iseed = 1
 
 # preferably these would be loop variables i.e.
 
@@ -33,13 +32,17 @@ lonsel = 10
 
 #%%
 
+imp.reload(DataHolder)
+
+# set user parameters
 ssplist = ["126","245","370","585"]
 
 experiment_era = [1950,2100]
 baselineera = [1900,1950]
 
 inputlength = 10
-outputavgtime = 5
+outputavgtime = 3
+tpercentile = 80
 
 # data params
 outres = 10
@@ -93,6 +96,25 @@ params = {
 # get the data
 
 AllData = DataHolder.MPIInputOutput_SSPlist(params,ssplist)
+
+def GMTexprob(GMTvec,outputprobs):
+    bins = np.arange(-1,5.05,0.05)
+
+    GMTvec = np.squeeze(GMTvec)
+    binprobs = []
+    for ibin,binval in enumerate(bins[:-1]):
+        if len(outputprobs.shape)==2:
+            exs = outputprobs[(GMTvec>=binval) & (GMTvec<bins[ibin+1]),1]
+        elif len(outputprobs.shape)==1:
+            exs = outputprobs[(GMTvec>=binval) & (GMTvec<bins[ibin+1])]
+        if len(exs) == 0:
+            prob = np.nan
+        else:
+            prob = exs.mean()
+        binprobs.append(prob)
+    
+    return np.asarray(binprobs),bins
+
 
 def train_loop(dataloader, cnn, loss_fn, optimizer,device):
     
@@ -237,6 +259,7 @@ trainval = np.random.choice(ntrain+nval,ntrain+nval,replace=False)
 trainvaltest = [trainval[:ntrain],trainval[ntrain:ntrain+nval],test]
 
 alltrain, allval, alltest = AllData.trainvaltest_recordmax(trainvaltest,experiment_era,baselineera,inputlength,outputavgtime,latsel,lonsel)
+# trainvaltest,historicalera,inputlength,outputlength,tpercentile,latsel,lonsel
 
 inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_onehot(alltrain,nclasses=2)
 inputval, inputvalGMT, outputval = DataHolder.tensortime_onehot(allval,nclasses=2)
@@ -247,7 +270,10 @@ train_loader = DataLoader(traindataset,batch_size=batch_size,shuffle=True)
 valdataset = TensorDataset(inputval,inputvalGMT,outputval)
 val_loader = DataLoader(valdataset,batch_size=inputval.size(0),shuffle=False) # all val in one batch maybe bad idea
 
+binprobs,bins = GMTexprob(inputtrainGMT.numpy(),outputtrain.numpy())
 
+#%%
+imp.reload(buildmodel)
 # lightly weight the class imbalance
 
 classimbalance = outputtrain.mean(axis=0)
@@ -269,12 +295,12 @@ else:
     weights_corrected = torch.tensor([1,1]).to(device)
 
 weights_corrected = weights_corrected/torch.max(weights_corrected)
+# weights_corrected = torch.tensor([0.8,1]).to(device)
 print(weights_corrected)
 
-# loss_fn = nn.CrossEntropyLoss(weight=weights_corrected)
+loss_fn = nn.CrossEntropyLoss(weight=weights_corrected)
 
-loss_fn = FocalLoss(weights=weights_corrected,gamma=2)
-
+# loss_fn = FocalLoss(weights=weights_corrected,gamma=1.5)
 valimbalance = outputval.mean(axis=0)
 print("val imbalance is "+ str(valimbalance[0].numpy()) + ":" + str(valimbalance[1].numpy()))
 
@@ -332,5 +358,10 @@ valtrueclass = np.argmax(outputval.numpy(),axis=1)
 valacc = np.mean(valpredclass==valtrueclass)
 print("best accuracy = "+ str(valacc))
 print("on a bg acc of "+ str(valimbalance[0].numpy()) + ":" + str(valimbalance[1].numpy()))
+
+# %%
+
+plt.scatter(inputvalGMT.numpy().squeeze(),valpred[:,1],marker='.')
+plt.plot(bins[:-1]+0.025,binprobs)
 
 # %%

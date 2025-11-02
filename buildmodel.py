@@ -237,21 +237,21 @@ class CNNclassifier(nn.Module):
         self.inputshape2 = in_data2.size()
         num_conv_blocks = 3
         num_filters = 16
-        hiddens = [50,10]
+        hiddens = [1000,1000,100]
         
         self.conv_layers = nn.ModuleList()
 
         # filterlist.append(num_filters)
         self.conv_layers.append(nn.Conv2d(in_channels=self.inputshape1[1], out_channels=num_filters, kernel_size=3, padding=1))
         # self.conv_layers.append(nn.BatchNorm2d(num_filters))
-        self.conv_layers.append(nn.Sigmoid())
+        self.conv_layers.append(nn.ReLU())
         self.conv_layers.append(nn.AvgPool2d(kernel_size=2, stride=2))
 
         for i in range(num_conv_blocks-1):
 
             self.conv_layers.append(nn.Conv2d(in_channels=num_filters, out_channels=num_filters, kernel_size=3, padding=1))
             # self.conv_layers.append(nn.BatchNorm2d(num_filters))
-            self.conv_layers.append(nn.Sigmoid())
+            self.conv_layers.append(nn.ReLU())
             self.conv_layers.append(nn.AvgPool2d(kernel_size=2, stride=2))
         
         self.flatten = nn.Flatten()
