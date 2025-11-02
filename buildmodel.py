@@ -6,10 +6,10 @@ import numpy as np
 
 
 class CNNordinalclassifier(nn.Module):
-    def __init__(self, in_data1, in_data2, out_data):
+    def __init__(self, in_data1, in_data2, out_size):
         super(CNNordinalclassifier, self).__init__()
 
-        out_size = out_data.size(-1)
+        # out_size = out_data.size(-1)
         self.inputshape1 = in_data1.size()
         self.inputshape2 = in_data2.size()
         self.n_filters = [32,32]
@@ -229,10 +229,10 @@ class CNNregression(nn.Module):
         return outfull
     
 class CNNclassifier(nn.Module):
-    def __init__(self,in_data1, in_data2, out_data):
+    def __init__(self,in_data1, in_data2, out_size):
         super(CNNclassifier, self).__init__()
         
-        out_size = out_data.size(-1)
+        # out_size = out_data.size(-1)
         self.inputshape1 = in_data1.size()
         self.inputshape2 = in_data2.size()
         num_conv_blocks = 3

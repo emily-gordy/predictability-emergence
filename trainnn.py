@@ -19,8 +19,8 @@ import sys
 
 #%% 
 
-iseed = int(sys.argv[1])
-# iseed = 1
+# iseed = int(sys.argv[1])
+iseed = 1
 
 # preferably these would be loop variables i.e.
 
@@ -101,6 +101,7 @@ def GMTexprob(GMTvec,outputprobs):
     bins = np.arange(-1,5.05,0.05)
 
     GMTvec = np.squeeze(GMTvec)
+    outputprobs = np.squeeze(outputprobs)
     binprobs = []
     for ibin,binval in enumerate(bins[:-1]):
         if len(outputprobs.shape)==2:
@@ -167,7 +168,7 @@ def val_loop(dataloader, model, loss_fn, optimizer, scheduler, device):
         valid_loss = batch_losses.mean()
 
         all_pred = np.asarray(all_pred)[:,1]
-        all_true = np.asarray(all_true)[:,1]
+        all_true = np.asarray(all_true)
 
         print(f"validation loss: {valid_loss:>7f}")
         
@@ -239,14 +240,14 @@ class FocalLoss(nn.Module):
 
 # set device
 
-#if torch.cuda.is_available():
-#    device = 'cuda'
-#elif torch.backends.mps.is_available() & torch.backends.mps.is_built():
-#    device = 'mps'
-#else:
-#    device='cpu'
+if torch.cuda.is_available():
+   device = 'cuda'
+elif torch.backends.mps.is_available() & torch.backends.mps.is_built():
+   device = 'mps'
+else:
+   device='cpu'
 
-device = 'cpu'
+# device = 'cpu'
 
 print(f"Using device: {device}")
 
@@ -278,23 +279,24 @@ binprobs,bins = GMTexprob(inputtrainGMT.numpy(),outputtrain.numpy())
 imp.reload(buildmodel)
 # lightly weight the class imbalance
 
-classimbalance = outputtrain.mean()
+classimbalance = np.mean(alltrain[-1])
+classimbalance = [(1-classimbalance),classimbalance]
 weights = max(classimbalance)/classimbalance
 
 if classimbalance[0]<0.47:
 
     # weights = max(classimbalance)/classimbalance
     weights_corrected = [weights[0]-0.5*weights[0],weights[1]]
-    weights_corrected = torch.tensor(weights_corrected).to(device)
+    weights_corrected = torch.tensor(weights_corrected,dtype=torch.float32).to(device)
 
 elif classimbalance[0]>0.53:
 
     # weights = max(classimbalance)/classimbalance
     weights_corrected = [weights[0],weights[1]-0.5*weights[1]]
-    weights_corrected = torch.tensor(weights_corrected).to(device)
+    weights_corrected = torch.tensor(weights_corrected,dtype=torch.float32).to(device)
 
 else:
-    weights_corrected = torch.tensor([1,1]).to(device)
+    weights_corrected = torch.tensor([1,1],dtype=torch.float32).to(device)
 
 weights_corrected = weights_corrected/torch.max(weights_corrected)
 # weights_corrected = torch.tensor([0.8,1]).to(device)
@@ -303,12 +305,13 @@ print(weights_corrected)
 loss_fn = nn.CrossEntropyLoss(weight=weights_corrected)
 
 # loss_fn = FocalLoss(weights=weights_corrected,gamma=1.5)
-valimbalance = outputval.mean(axis=0)
-print("val imbalance is "+ str(valimbalance[0].numpy()) + ":" + str(valimbalance[1].numpy()))
+valimbalance = np.mean(allval[-1])
+valimbalance = [(1-valimbalance),valimbalance]
+print("val imbalance is "+ str(valimbalance[0]) + ":" + str(valimbalance[1]))
 
 # train the model
 
-cnn = buildmodel.CNNclassifier(inputtrain, inputtrainGMT, outputtrain).to(device)
+cnn = buildmodel.CNNclassifier(inputtrain, inputtrainGMT, len(weights_corrected)).to(device)
 
 optimizer = optim.SGD(cnn.parameters(), 
                 lr=lr,
@@ -355,7 +358,7 @@ with torch.no_grad():
 valpred = valpred.detach().cpu().numpy()
 
 valpredclass = np.argmax(valpred,axis=1)
-valtrueclass = np.argmax(outputval.numpy(),axis=1)
+valtrueclass = outputval.numpy()
 
 valacc = np.mean(valpredclass==valtrueclass)
 print("best accuracy = "+ str(valacc))
