@@ -19,8 +19,8 @@ import sys
 
 #%% 
 
-# iseed = int(sys.argv[1])
-iseed = 1
+iseed = int(sys.argv[1])
+#iseed = 1
 
 # preferably these would be loop variables i.e.
 
@@ -247,7 +247,7 @@ elif torch.backends.mps.is_available() & torch.backends.mps.is_built():
 else:
    device='cpu'
 
-# device = 'cpu'
+#device = 'cpu'
 
 print(f"Using device: {device}")
 
