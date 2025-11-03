@@ -12,9 +12,12 @@ import torch.optim as optim
 import torch.optim.lr_scheduler as lr_scheduler
 import time
 import optuna
+import sys
 
 import pandas
 
+# iseed = int(sys.argv[1])
+iseed = 0
 # some exp params
 
 ssplist = ["126","245","370","585"]
@@ -67,9 +70,11 @@ test = np.arange(38,50)
 
 AllData = DataHolder.MPIInputOutput_SSPlist(params,ssplist)
 
-seed = 42
+seeds = [42,103847956,8137461]
+seed = seeds[iseed]
 
 np.random.seed(seed)
+torch.manual_seed(seed)
 
 trainval = np.random.choice(ntrain+nval,ntrain+nval,replace=False)
 trainvaltest = [trainval[:ntrain],trainval[ntrain:ntrain+nval],test]
@@ -78,7 +83,7 @@ alltrain, allval, alltest = AllData.trainvaltest_recordmax(trainvaltest,experime
 
 
 batch_size = 128
-lr = 0.01
+lr = 0.05
 ridge_pen = 1e-6
 lr_patience = 7
 early_stopping_patience = 20
@@ -115,8 +120,6 @@ def val_loop(dataloader, model, loss_fn, optimizer, scheduler, device):
         size = len(dataloader.dataset)
         num_batches = len(dataloader)
 
-        all_pred = []
-        all_true = []
         all_losses = []
 
         with torch.no_grad():
@@ -223,6 +226,7 @@ elif classimbalance[0]>0.53:
 else:
     weights_corrected = torch.tensor([1,1]).to(device)
 
+weights_corrected = weights_corrected/torch.sum(weights_corrected)
 print(weights_corrected)
 
 loss_fn = nn.CrossEntropyLoss(weight=weights_corrected)
@@ -240,14 +244,20 @@ class CNN(nn.Module):
         self.num_conv_blocks = trial.suggest_int('num_conv_blocks', 1, 4)
         filterlist = []
         
+        pooling_type = trial.suggest_categorical('pooling_type', ['avg', 'max'])
+        if pooling_type == 'avg':
+            pooling_layer = nn.AvgPool2d(kernel_size=2, stride=2)
+        else:  # 'max'
+            pooling_layer = nn.MaxPool2d(kernel_size=2, stride=2)
+        trial.set_user_attr(f'pooling_type', pooling_type)
+
         self.conv_layers = nn.ModuleList()
-        
         num_filters = trial.suggest_int('num_filters', 4, 64, step=4)
 
         filterlist.append(num_filters)
         self.conv_layers.append(nn.Conv2d(in_channels=self.inputshape1[1], out_channels=num_filters, kernel_size=3, padding=1))
         self.conv_layers.append(nn.ReLU())
-        self.conv_layers.append(nn.AvgPool2d(kernel_size=2, stride=2))
+        self.conv_layers.append(pooling_layer)
         trial.set_user_attr(f'num_filters', num_filters)
 
         for i in range(self.num_conv_blocks-1):
@@ -255,7 +265,7 @@ class CNN(nn.Module):
             num_filters = trial.suggest_int(f'num_filters', 4, 16, step=4)
             self.conv_layers.append(nn.Conv2d(in_channels=filterlist[i], out_channels=num_filters, kernel_size=3, padding=1))
             self.conv_layers.append(nn.ReLU())
-            self.conv_layers.append(nn.AvgPool2d(kernel_size=2, stride=2))
+            self.conv_layers.append(pooling_layer)
             filterlist.append(num_filters)
             trial.set_user_attr(f'num_filter_layer_{i+1}', num_filters)
         
@@ -265,7 +275,7 @@ class CNN(nn.Module):
         self.num_hidden_layers = trial.suggest_int('num_hidden_layers', 1, 4)
         self.linear_layers = nn.ModuleList()
 
-        num_nodes = trial.suggest_int(f'num_nodes_layer_0', 10, 200, step=10)
+        num_nodes = trial.suggest_int(f'num_nodes_layer_0', 50, 1000, step=50)
         self.linear_layers.append(nn.Linear(in_features=self.get_flatten_size()+1, out_features=num_nodes))
         self.linear_layers.append(nn.ReLU())
 
@@ -275,7 +285,7 @@ class CNN(nn.Module):
         nodelist.append(num_nodes)
         
         for i in range(self.num_hidden_layers-1):   
-            num_nodes = trial.suggest_int(f'num_nodes_layer_{i+1}', 10, 200, step=10)
+            num_nodes = trial.suggest_int(f'num_nodes_layer_{i+1}', 50, 1000, step=50)
             self.linear_layers.append(nn.Linear(in_features=nodelist[i], out_features=num_nodes))         
             self.linear_layers.append(nn.ReLU())
             nodelist.append(num_nodes)
@@ -304,14 +314,15 @@ class CNN(nn.Module):
         return x
 
 def objective(trial):
-    model = CNN(trial,inputtrain,inputtrainGMT,outputtrain).to(device)
-    print(model)
-    optimizer = optim.SGD(model.parameters(), 
+    cnn = CNN(trial,inputtrain,inputtrainGMT,outputtrain).to(device)
+    print(cnn)
+    optimizer = optim.SGD(cnn.parameters(), 
                 lr=lr,
-                weight_decay=ridge_pen
+                weight_decay=ridge_pen,
+                # momentum=0.5
                 )
     
-    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, threshold=1e-4, factor=0.1, patience=lr_patience, cooldown=0, min_lr=5e-6)
+    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, threshold=1e-4, factor=0.1, patience=lr_patience, cooldown=0, min_lr=1e-5)
     loss_fn = nn.CrossEntropyLoss(weight=weights_corrected)
 
     loss = []
@@ -325,22 +336,23 @@ def objective(trial):
         # print(f"Epoch {t+1}\n-------------------------------")
         
 
-        train_loop(train_loader, model, loss_fn, optimizer, device)
-        valid_loss = val_loop(val_loader, model, loss_fn, optimizer, scheduler, device)
+        train_loop(train_loader, cnn, loss_fn, optimizer, device)
+        valid_loss = val_loop(val_loader, cnn, loss_fn, optimizer, scheduler, device)
 
         loss.append(valid_loss)
         
         # print(f"{time2-time1:4f} seconds per epoch")
         best_val_loss, earlystopping, epochs_no_improve = model_checkpoint_nosave(valid_loss,best_val_loss,epochs_no_improve,early_stopping_patience)
         if earlystopping==1:
-
+            valpred = cnn(inputval.to(device),inputvalGMT.to(device))
+            valacc = np.mean(np.argmax(valpred.detach().cpu().numpy(),axis=1)==np.argmax(outputval.cpu().numpy(),axis=1))
+            print('validation accuracy is '+ str(valacc))
             # print(f'Early stopping after {t+1} epochs.')
             break
     time2 = time.time()
     print(f"{time2-time1:4f} seconds for trial")
     return best_val_loss
 
-#%%
 
 study = optuna.create_study(direction='minimize')
 study.optimize(objective, n_trials=30)

@@ -1,10 +1,11 @@
 #!/bin/bash
 
 #SBATCH --job-name=hp_tune
-#SBATCH --error=/nesi/nobackup/uoa04506/job_output/hp_tune.err
-#SBATCH --output=/nesi/nobackup/uoa04506/job_output/hp_tune.out
+#SBATCH --error=/nesi/nobackup/uoa04506/job_output/hp_tune_%a.err
+#SBATCH --output=/nesi/nobackup/uoa04506/job_output/hp_tune_%a.out
 #SBATCH --ntasks=1
 #SBATCH --gpus-per-task=A100:1
+#SBATCH --array=0-9
 #SBATCH --mem=20GB
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=emily.gordon@auckland.ac.nz

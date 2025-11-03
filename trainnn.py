@@ -73,7 +73,7 @@ seed = seedlist[iseed]
 # some training params
 
 batch_size = 128
-lr = 0.01
+lr = 0.05
 ridge_pen = 1e-6
 lr_patience = 7
 early_stopping_patience = 20
@@ -196,48 +196,6 @@ def model_checkpoint(model,val_loss,best_val_loss,epochs_no_improve,fileout,pati
     
     return best_val_loss, earlystopping, epochs_no_improve
 
-class FocalLoss(nn.Module):
-    def __init__(self, weights=[1,1], gamma=2, reduction='mean'):
-        """
-        Focal Loss implementation for multi-class classification
-        
-        Args:
-            alpha (float): Weighting factor for rare class (default: 1)
-            gamma (float): Focusing parameter (default: 2)
-            reduction (str): Specifies the reduction to apply to the output:
-                           'none' | 'mean' | 'sum' (default: 'mean')
-        """
-        super(FocalLoss, self).__init__()
-        self.weights = weights
-        self.gamma = gamma
-        self.reduction = reduction
-        
-    def forward(self, inputs, targets):
-        """
-        Args:
-            inputs: A float tensor of shape [batch_size, num_classes]
-                   (raw logits from model)
-            targets: A long tensor of shape [batch_size]
-                    (ground truth class indices)
-        """
-        # Compute cross entropy
-        # ce_loss = F.cross_entropy(inputs, targets, reduction='none')
-
-        focal_loss_noreduce = -1* self.weights * (1-inputs)**self.gamma * targets * torch.log(inputs) 
-        focal_loss = focal_loss_noreduce.mean()
-        # # Compute probabilities
-        # pt = torch.exp(-ce_loss)
-        
-        # # Compute focal loss
-        # focal_loss = self.alpha * (1 - pt) ** self.gamma * ce_loss
-        
-        # if self.reduction == 'mean':
-        #     return focal_loss.mean()
-        # elif self.reduction == 'sum':
-        #     return focal_loss.sum()
-        # else:
-        return focal_loss
-
 # set device
 
 if torch.cuda.is_available():
@@ -264,8 +222,8 @@ trainvaltest = [trainval[:ntrain],trainval[ntrain:ntrain+nval],test]
 alltrain, allval, alltest = AllData.trainvaltest_recordmax(trainvaltest,experiment_era,baselineera,inputlength,outputavgtime,latsel,lonsel)
 # trainvaltest,historicalera,inputlength,outputlength,tpercentile,latsel,lonsel
 
-inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_classindex(alltrain,nclasses=2)
-inputval, inputvalGMT, outputval = DataHolder.tensortime_classindex(allval,nclasses=2)
+inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_onehot(alltrain,nclasses=2)
+inputval, inputvalGMT, outputval = DataHolder.tensortime_onehot(allval,nclasses=2)
 
 traindataset = TensorDataset(inputtrain,inputtrainGMT,outputtrain)
 train_loader = DataLoader(traindataset,batch_size=batch_size,shuffle=True)
@@ -298,7 +256,7 @@ elif classimbalance[0]>0.53:
 else:
     weights_corrected = torch.tensor([1,1],dtype=torch.float32).to(device)
 
-weights_corrected = weights_corrected/torch.max(weights_corrected)
+weights_corrected = weights_corrected/torch.sum(weights_corrected)
 # weights_corrected = torch.tensor([0.8,1]).to(device)
 print(weights_corrected)
 
@@ -315,9 +273,10 @@ cnn = buildmodel.CNNclassifier(inputtrain, inputtrainGMT, len(weights_corrected)
 
 optimizer = optim.SGD(cnn.parameters(), 
                 lr=lr,
-                weight_decay=ridge_pen
+                weight_decay=ridge_pen,
+                momentum=0.5
                 )
-scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, threshold=1e-4, factor=0.1, patience=lr_patience, cooldown=lr_patience, min_lr=5e-6)
+scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, threshold=1e-4, factor=0.1, patience=lr_patience, cooldown=lr_patience, min_lr=1e-5)
 
 loss = []
 
@@ -358,11 +317,11 @@ with torch.no_grad():
 valpred = valpred.detach().cpu().numpy()
 
 valpredclass = np.argmax(valpred,axis=1)
-valtrueclass = outputval.numpy()
+valtrueclass = np.argmax(outputval.numpy(),axis=1)
 
 valacc = np.mean(valpredclass==valtrueclass)
 print("best accuracy = "+ str(valacc))
-print("on a bg acc of "+ str(valimbalance[0].numpy()) + ":" + str(valimbalance[1].numpy()))
+print("on a bg acc of "+ str(valimbalance[0]) + ":" + str(valimbalance[1]))
 
 # %%
 
