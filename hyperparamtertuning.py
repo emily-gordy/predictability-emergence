@@ -16,8 +16,8 @@ import sys
 
 import pandas
 
-# iseed = int(sys.argv[1])
-iseed = 0
+iseed = int(sys.argv[1])
+#iseed = 0
 # some exp params
 
 ssplist = ["126","245","370","585"]
@@ -319,7 +319,7 @@ def objective(trial):
     optimizer = optim.SGD(cnn.parameters(), 
                 lr=lr,
                 weight_decay=ridge_pen,
-                # momentum=0.5
+                momentum=0.5
                 )
     
     scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, threshold=1e-4, factor=0.1, patience=lr_patience, cooldown=0, min_lr=1e-5)

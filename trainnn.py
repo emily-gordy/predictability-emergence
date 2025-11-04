@@ -41,8 +41,8 @@ experiment_era = [1950,2100]
 baselineera = [1900,1950]
 
 inputlength = 10
-outputavgtime = 3
-tpercentile = 80
+outputavgtime = 5
+#tpercentile = 80
 
 # data params
 outres = 10
