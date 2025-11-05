@@ -205,7 +205,7 @@ trainval = np.random.choice(ntrain+nval,ntrain+nval,replace=False)
 
 trainvaltest = [trainval[:ntrain],trainval[ntrain:ntrain+nval],test]
 
-alltrain, allval, alltest = AllData.trainvaltest_recordmax(trainvaltest,experiment_era,baselineera,inputlength,outputavgtime,latsel,lonsel)
+alltrain, allval, _ = AllData.trainvaltest_recordmax(trainvaltest,experiment_era,baselineera,inputlength,outputavgtime,latsel,lonsel)
 
 inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_onehot(alltrain,nclasses=2)
 inputval, inputvalGMT, outputval = DataHolder.tensortime_onehot(allval,nclasses=2)
