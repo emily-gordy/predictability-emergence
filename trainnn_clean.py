@@ -16,19 +16,14 @@ import time
 
 import glob
 import sys
+import json
 
 #%% 
 
 iseed = int(sys.argv[1])
-#iseed = 1
 
-# preferably these would be loop variables i.e.
-
-# for ilatsel,latsel in enumerate(latvec):
-#    for ilonsel,lonsel in enumerate(lonvec):
-
-latsel = 20
-lonsel = 0
+latsel = -30
+lonsel = 140
 
 #%%
 
@@ -41,8 +36,7 @@ experiment_era = [1950,2100]
 baselineera = [1900,1950]
 
 inputlength = 10
-outputavgtime = 5
-#tpercentile = 80
+outputavgtime = 10
 
 # data params
 outres = 10
@@ -78,6 +72,8 @@ ridge_pen = 1e-6
 lr_patience = 7
 early_stopping_patience = 20
 epochs = 2000
+downweight = 0.5 # amount to de-emphasize the class imbalance
+momentum = 0.5
 
 # make parameter dictionary to be passed to DataHolder
 
@@ -97,25 +93,7 @@ params = {
 
 AllData = DataHolder.MPIInputOutput_SSPlist(params,ssplist)
 
-def GMTexprob(GMTvec,outputprobs):
-    bins = np.arange(-1,5.05,0.05)
-
-    GMTvec = np.squeeze(GMTvec)
-    outputprobs = np.squeeze(outputprobs)
-    binprobs = []
-    for ibin,binval in enumerate(bins[:-1]):
-        if len(outputprobs.shape)==2:
-            exs = outputprobs[(GMTvec>=binval) & (GMTvec<bins[ibin+1]),1]
-        elif len(outputprobs.shape)==1:
-            exs = outputprobs[(GMTvec>=binval) & (GMTvec<bins[ibin+1])]
-        if len(exs) == 0:
-            prob = np.nan
-        else:
-            prob = exs.mean()
-        binprobs.append(prob)
-    
-    return np.asarray(binprobs),bins
-
+# training/validation functions
 
 def train_loop(dataloader, cnn, loss_fn, optimizer,device):
     
@@ -196,6 +174,17 @@ def model_checkpoint(model,val_loss,best_val_loss,epochs_no_improve,fileout,pati
     
     return best_val_loss, earlystopping, epochs_no_improve
 
+def save_metrics(seed, val_loss, accuracy, class_imbalance, json_file):
+    result = {
+        "seed": seed,
+        "val_loss": val_loss,
+        "val_accuracy": accuracy,
+        "val_class_imbalance": class_imbalance
+    }
+    
+    with open(json_file, 'w') as f:
+        json.dump(result, f, indent=2)
+
 # set device
 
 if torch.cuda.is_available():
@@ -205,12 +194,9 @@ elif torch.backends.mps.is_available() & torch.backends.mps.is_built():
 else:
    device='cpu'
 
-#device = 'cpu'
-
 print(f"Using device: {device}")
 
-# for ilatsel,latsel in enumerate(latvec):
-#   for ilonsel,lonsel in enumerare(lonvec):
+# split data
 
 torch.manual_seed(seed)
 np.random.seed(seed)
@@ -220,7 +206,6 @@ trainval = np.random.choice(ntrain+nval,ntrain+nval,replace=False)
 trainvaltest = [trainval[:ntrain],trainval[ntrain:ntrain+nval],test]
 
 alltrain, allval, alltest = AllData.trainvaltest_recordmax(trainvaltest,experiment_era,baselineera,inputlength,outputavgtime,latsel,lonsel)
-# trainvaltest,historicalera,inputlength,outputlength,tpercentile,latsel,lonsel
 
 inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_onehot(alltrain,nclasses=2)
 inputval, inputvalGMT, outputval = DataHolder.tensortime_onehot(allval,nclasses=2)
@@ -231,10 +216,6 @@ train_loader = DataLoader(traindataset,batch_size=batch_size,shuffle=True)
 valdataset = TensorDataset(inputval,inputvalGMT,outputval)
 val_loader = DataLoader(valdataset,batch_size=inputval.size(0),shuffle=False) # all val in one batch maybe bad idea
 
-binprobs,bins = GMTexprob(inputtrainGMT.numpy(),outputtrain.numpy())
-
-#%%
-imp.reload(buildmodel)
 # lightly weight the class imbalance
 
 classimbalance = np.mean(alltrain[-1])
@@ -243,26 +224,23 @@ weights = max(classimbalance)/classimbalance
 
 if classimbalance[0]<0.47:
 
-    # weights = max(classimbalance)/classimbalance
-    weights_corrected = [weights[0]-0.5*weights[0],weights[1]]
+    weights_corrected = [weights[0]-downweight*weights[0],weights[1]]
     weights_corrected = torch.tensor(weights_corrected,dtype=torch.float32).to(device)
 
 elif classimbalance[0]>0.53:
 
-    # weights = max(classimbalance)/classimbalance
-    weights_corrected = [weights[0],weights[1]-0.5*weights[1]]
+    weights_corrected = [weights[0],weights[1]-downweight*weights[1]]
     weights_corrected = torch.tensor(weights_corrected,dtype=torch.float32).to(device)
 
 else:
     weights_corrected = torch.tensor([1,1],dtype=torch.float32).to(device)
 
 weights_corrected = weights_corrected/torch.sum(weights_corrected)
-# weights_corrected = torch.tensor([0.8,1]).to(device)
+
 print(weights_corrected)
 
 loss_fn = nn.CrossEntropyLoss(weight=weights_corrected)
 
-# loss_fn = FocalLoss(weights=weights_corrected,gamma=1.5)
 valimbalance = np.mean(allval[-1])
 valimbalance = [(1-valimbalance),valimbalance]
 print("val imbalance is "+ str(valimbalance[0]) + ":" + str(valimbalance[1]))
@@ -273,8 +251,7 @@ cnn = buildmodel.CNNclassifier(inputtrain, inputtrainGMT, len(weights_corrected)
 
 optimizer = optim.SGD(cnn.parameters(), 
                 lr=lr,
-                # weight_decay=ridge_pen,
-                momentum=0.5
+                momentum=momentum,
                 )
 scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, threshold=1e-4, factor=0.1, patience=lr_patience, cooldown=lr_patience, min_lr=1e-5)
 
@@ -284,6 +261,7 @@ best_val_loss = np.inf
 epochs_no_improve = 0
 
 fileout = "models/"+modelfilefront+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(latsel)+"_lon"+str(lonsel)+"_seed"+str(seed)+".pt"
+metricsout = "metrics/"+modelfilefront+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(latsel)+"_lon"+str(lonsel)+"_seed"+str(seed)+".json"
 
 print(f"class imbalance is {classimbalance[0]} to {classimbalance[1]}")
 
@@ -323,9 +301,8 @@ valacc = np.mean(valpredclass==valtrueclass)
 print("best accuracy = "+ str(valacc))
 print("on a bg acc of "+ str(valimbalance[0]) + ":" + str(valimbalance[1]))
 
-# %%
-
-#plt.scatter(inputvalGMT.numpy().squeeze(),valpred[:,1],marker='.')
-#plt.plot(bins[:-1]+0.025,binprobs)
+val_randomchance = np.max(valimbalance)
+#%%
+save_metrics(seed, best_val_loss.cpu().numpy().item(), valacc, val_randomchance, metricsout)
 
 # %%

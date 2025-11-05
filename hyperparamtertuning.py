@@ -351,10 +351,10 @@ def objective(trial):
             break
     time2 = time.time()
     print(f"{time2-time1:4f} seconds for trial")
-    return best_val_loss
+    return valacc
 
 
-study = optuna.create_study(direction='minimize')
+study = optuna.create_study(direction='maximize')
 study.optimize(objective, n_trials=30)
 
 df = study.trials_dataframe()
