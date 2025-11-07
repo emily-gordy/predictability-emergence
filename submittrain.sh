@@ -18,4 +18,4 @@ module load PyTorch/1.12.1-gimkl-2022a-Python-3.10.5-CUDA-11.6.2
 
 cd /nesi/nobackup/uoa04506/predictability-emergence/
 
-python3 -u trainnn.py $SLURM_ARRAY_TASK_ID
+python3 -u trainnn_clean.py $SLURM_ARRAY_TASK_ID

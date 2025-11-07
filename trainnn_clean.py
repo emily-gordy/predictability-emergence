@@ -17,13 +17,17 @@ import time
 import glob
 import sys
 import json
+import os
 
 #%% 
 
 iseed = int(sys.argv[1])
 
-latsel = -30
-lonsel = 140
+num_workers = int(os.environ.get('DATALOADER_WORKERS', 4))
+print(f"Using {num_workers} DataLoader workers")
+
+latsel = 40
+lonsel = 240
 
 #%%
 
@@ -211,7 +215,7 @@ inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_onehot(alltrain,n
 inputval, inputvalGMT, outputval = DataHolder.tensortime_onehot(allval,nclasses=2)
 
 traindataset = TensorDataset(inputtrain,inputtrainGMT,outputtrain)
-train_loader = DataLoader(traindataset,batch_size=batch_size,shuffle=True)
+train_loader = DataLoader(traindataset,batch_size=batch_size,shuffle=True,num_workers=num_workers)
 
 valdataset = TensorDataset(inputval,inputvalGMT,outputval)
 val_loader = DataLoader(valdataset,batch_size=inputval.size(0),shuffle=False) # all val in one batch maybe bad idea
