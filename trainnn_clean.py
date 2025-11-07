@@ -21,13 +21,14 @@ import os
 
 #%% 
 
-iseed = int(sys.argv[1])
+# iseed = int(sys.argv[1])
+iseed = 0
 
-num_workers = int(os.environ.get('DATALOADER_WORKERS', 4))
-print(f"Using {num_workers} DataLoader workers")
+# num_workers = int(os.environ.get('DATALOADER_WORKERS', 4))
+# print(f"Using {num_workers} DataLoader workers")
 
-latsel = 40
-lonsel = 240
+# latsel = 40
+# lonsel = 240
 
 #%%
 
@@ -96,6 +97,7 @@ params = {
 # get the data
 
 AllData = DataHolder.MPIInputOutput_SSPlist(params,ssplist)
+landmask = np.isnan(AllData.alloutput[0][0,0])
 
 # training/validation functions
 
@@ -189,6 +191,31 @@ def save_metrics(seed, val_loss, accuracy, class_imbalance, json_file):
     with open(json_file, 'w') as f:
         json.dump(result, f, indent=2)
 
+def lightclassweighting(positiveclassimbalance):
+    
+    classimbalance = np.asarray([(1-positiveclassimbalance),positiveclassimbalance])
+    weights = np.max(classimbalance)/classimbalance
+
+    classratio = np.max(classimbalance)/np.min(classimbalance)
+    downweight = 0.2*(classratio-1)/classratio # amount to de-emphasize the class imbalance
+
+    if classimbalance[0]<0.47:
+
+        weights_corrected = [weights[0]-downweight*weights[0],weights[1]]
+        weights_corrected = torch.tensor(weights_corrected,dtype=torch.float32).to(device)
+
+    elif classimbalance[0]>0.53:
+
+        weights_corrected = [weights[0],weights[1]-downweight*weights[1]]
+        weights_corrected = torch.tensor(weights_corrected,dtype=torch.float32).to(device)
+
+    else:
+        weights_corrected = torch.tensor([1,1],dtype=torch.float32).to(device)
+
+    weights_corrected = weights_corrected/torch.sum(weights_corrected)
+
+    return weights_corrected
+
 # set device
 
 if torch.cuda.is_available():
@@ -205,111 +232,118 @@ print(f"Using device: {device}")
 torch.manual_seed(seed)
 np.random.seed(seed)
 
+dummylat = -20
+dummylon = 0
+
 trainval = np.random.choice(ntrain+nval,ntrain+nval,replace=False)
 
 trainvaltest = [trainval[:ntrain],trainval[ntrain:ntrain+nval],test]
 
-alltrain, allval, _ = AllData.trainvaltest_recordmax(trainvaltest,experiment_era,baselineera,inputlength,outputavgtime,latsel,lonsel)
+alltrain, allval, _ = AllData.trainvaltest_recordmax(trainvaltest,experiment_era,baselineera,inputlength,outputavgtime,dummylat,dummylon)
 
-inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_onehot(alltrain,nclasses=2)
-inputval, inputvalGMT, outputval = DataHolder.tensortime_onehot(allval,nclasses=2)
+inputtrain, inputtrainGMT, _ = DataHolder.tensortime_onehot(alltrain,nclasses=2)
+inputval, inputvalGMT, _ = DataHolder.tensortime_onehot(allval,nclasses=2)
 
-traindataset = TensorDataset(inputtrain,inputtrainGMT,outputtrain)
-train_loader = DataLoader(traindataset,batch_size=batch_size,shuffle=True,num_workers=num_workers)
+regenerate = False
 
-valdataset = TensorDataset(inputval,inputvalGMT,outputval)
-val_loader = DataLoader(valdataset,batch_size=inputval.size(0),shuffle=False) # all val in one batch maybe bad idea
+for ilat,lat in enumerate(AllData.output_lat[2:]):
 
-# lightly weight the class imbalance
+    if (lat>=0) & (regenerate==False):
 
-classimbalance = np.mean(alltrain[-1])
-classimbalance = np.asarray([(1-classimbalance),classimbalance])
-weights = np.max(classimbalance)/classimbalance
+        alltrain, allval, _ = AllData.trainvaltest_recordmax(trainvaltest,experiment_era,baselineera,inputlength,outputavgtime,10,dummylon)
 
-classratio = np.max(classimbalance)/np.min(classimbalance)
-downweight = 0.2*(classratio-1)/classratio # amount to de-emphasize the class imbalance
+        inputtrain, inputtrainGMT, _ = DataHolder.tensortime_onehot(alltrain,nclasses=2)
+        inputval, inputvalGMT, _ = DataHolder.tensortime_onehot(allval,nclasses=2)
 
-if classimbalance[0]<0.47:
+        regenerate = True
 
-    weights_corrected = [weights[0]-downweight*weights[0],weights[1]]
-    weights_corrected = torch.tensor(weights_corrected,dtype=torch.float32).to(device)
+    for ilon,lon in enumerate(AllData.output_lon):
 
-elif classimbalance[0]>0.53:
+        if ~landmask[ilat+2,ilon]:
 
-    weights_corrected = [weights[0],weights[1]-downweight*weights[1]]
-    weights_corrected = torch.tensor(weights_corrected,dtype=torch.float32).to(device)
+            fileout = "models/"+modelfilefront+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_lon"+str(lon)+"_seed"+str(seed)+".pt"
+            metricsout = "metrics/"+modelfilefront+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_lon"+str(lon)+"_seed"+str(seed)+".json"
 
-else:
-    weights_corrected = torch.tensor([1,1],dtype=torch.float32).to(device)
+            filecheck = glob.glob(fileout)
+            if len(filecheck)==0:
+                print('no model exists, proceeding')
+                outputtrainall, outputvalall, _ = AllData.trainvaltest_recordmax_outputonly(trainvaltest,experiment_era,baselineera,inputlength,outputavgtime,lat,lon)
 
-weights_corrected = weights_corrected/torch.sum(weights_corrected)
+                inputtrain,inputtrainGMT,outputtrain = DataHolder.tensortime_onehot_inputoutput(alltrain,outputtrainall,nclasses=2)
+                inputval,inputvalGMT,outputval = DataHolder.tensortime_onehot_inputoutput(allval,outputvalall,nclasses=2)
 
-print(weights_corrected)
+                traindataset = TensorDataset(inputtrain,inputtrainGMT,outputtrain)
+                train_loader = DataLoader(traindataset,batch_size=batch_size,shuffle=True,)#num_workers=num_workers)
 
-loss_fn = nn.CrossEntropyLoss(weight=weights_corrected)
+                valdataset = TensorDataset(inputval,inputvalGMT,outputval)
+                val_loader = DataLoader(valdataset,batch_size=inputval.size(0),shuffle=False) # all val in one batch maybe bad idea
 
-valimbalance = np.mean(allval[-1])
-valimbalance = [(1-valimbalance),valimbalance]
-print("val imbalance is "+ str(valimbalance[0]) + ":" + str(valimbalance[1]))
+                # lightly weight the class imbalance
+                classimbalance = np.mean(outputtrainall)
+                if classimbalance>0: # cant train where it never happens
+                    weights_corrected = lightclassweighting(classimbalance)
 
-# train the model
+                    print(weights_corrected)
 
-cnn = buildmodel.CNNclassifier(inputtrain, inputtrainGMT, len(weights_corrected)).to(device)
+                    loss_fn = nn.CrossEntropyLoss(weight=weights_corrected)
 
-optimizer = optim.SGD(cnn.parameters(), 
-                lr=lr,
-                momentum=momentum,
-                )
-scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, threshold=1e-4, factor=0.1, patience=lr_patience, cooldown=lr_patience, min_lr=1e-5)
+                    valimbalance = np.mean(outputvalall)
+                    valimbalance = [(1-valimbalance),valimbalance]
+                    print("val imbalance is "+ str(valimbalance[0]) + ":" + str(valimbalance[1]))
 
-loss = []
+                    # train the model
 
-best_val_loss = np.inf
-epochs_no_improve = 0
+                    cnn = buildmodel.CNNclassifier(inputtrain, inputtrainGMT, len(weights_corrected)).to(device)
 
-fileout = "models/"+modelfilefront+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(latsel)+"_lon"+str(lonsel)+"_seed"+str(seed)+".pt"
-metricsout = "metrics/"+modelfilefront+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(latsel)+"_lon"+str(lonsel)+"_seed"+str(seed)+".json"
+                    optimizer = optim.SGD(cnn.parameters(), 
+                                    lr=lr,
+                                    momentum=momentum,
+                                    )
+                    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, threshold=1e-4, factor=0.1, patience=lr_patience, cooldown=lr_patience, min_lr=1e-5)
 
-print(f"class imbalance is {classimbalance[0]} to {classimbalance[1]}")
+                    loss = []
 
-filecheck = glob.glob(fileout)
-filecheck = []
-if len(filecheck)==0:
+                    best_val_loss = np.inf
+                    epochs_no_improve = 0
+                    print('train loop')
+                    for t in range(epochs):
+                        print(f"Epoch {t+1}\n-------------------------------")
+                        time1 = time.time()
 
-    print('train loop')
-    for t in range(epochs):
-        print(f"Epoch {t+1}\n-------------------------------")
-        time1 = time.time()
+                        train_loop(train_loader, cnn, loss_fn, optimizer, device)
+                        valid_loss = val_loop(val_loader, cnn, loss_fn, optimizer, scheduler, device)
 
-        train_loop(train_loader, cnn, loss_fn, optimizer, device)
-        valid_loss = val_loop(val_loader, cnn, loss_fn, optimizer, scheduler, device)
+                        loss.append(valid_loss)
+                        time2 = time.time()
+                        print(f"{time2-time1:4f} seconds per epoch")
+                        best_val_loss, earlystopping, epochs_no_improve = model_checkpoint(cnn,valid_loss,best_val_loss,epochs_no_improve,fileout,early_stopping_patience)
+                        if earlystopping==1:
 
-        loss.append(valid_loss)
-        time2 = time.time()
-        print(f"{time2-time1:4f} seconds per epoch")
-        best_val_loss, earlystopping, epochs_no_improve = model_checkpoint(cnn,valid_loss,best_val_loss,epochs_no_improve,fileout,early_stopping_patience)
-        if earlystopping==1:
+                            print(f'Early stopping after {t+1} epochs.')
+                            break
 
-            print(f'Early stopping after {t+1} epochs.')
-            break
+                    cnn.load_state_dict(torch.load(fileout, weights_only=True))
 
-cnn.load_state_dict(torch.load(fileout, weights_only=True))
+                    with torch.no_grad():
+                        cnn.eval()
+                        valpred = cnn(inputval.to(device), inputvalGMT.to(device))
 
-with torch.no_grad():
-    cnn.eval()
-    valpred = cnn(inputval.to(device), inputvalGMT.to(device))
+                    valpred = valpred.cpu().numpy()
 
-valpred = valpred.detach().cpu().numpy()
+                    valpredclass = np.argmax(valpred,axis=1)
+                    valtrueclass = np.argmax(outputval.numpy(),axis=1)
 
-valpredclass = np.argmax(valpred,axis=1)
-valtrueclass = np.argmax(outputval.numpy(),axis=1)
+                    valacc = np.mean(valpredclass==valtrueclass)
+                    print("best accuracy = "+ str(valacc))
+                    print("on a bg acc of "+ str(valimbalance[0]) + ":" + str(valimbalance[1]))
 
-valacc = np.mean(valpredclass==valtrueclass)
-print("best accuracy = "+ str(valacc))
-print("on a bg acc of "+ str(valimbalance[0]) + ":" + str(valimbalance[1]))
+                    val_randomchance = np.max(valimbalance)
 
-val_randomchance = np.max(valimbalance)
+                    save_metrics(seed, best_val_loss.cpu().numpy().item(), valacc, val_randomchance, metricsout)
+            
+        else:
+            print('aye me hearties tis in the ocean blue')
 
-save_metrics(seed, best_val_loss.cpu().numpy().item(), valacc, val_randomchance, metricsout)
+
 
 # %%
