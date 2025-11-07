@@ -72,7 +72,7 @@ ridge_pen = 1e-6
 lr_patience = 7
 early_stopping_patience = 20
 epochs = 2000
-downweight = 0.5 # amount to de-emphasize the class imbalance
+
 momentum = 0.5
 
 # make parameter dictionary to be passed to DataHolder
@@ -219,8 +219,11 @@ val_loader = DataLoader(valdataset,batch_size=inputval.size(0),shuffle=False) # 
 # lightly weight the class imbalance
 
 classimbalance = np.mean(alltrain[-1])
-classimbalance = [(1-classimbalance),classimbalance]
-weights = max(classimbalance)/classimbalance
+classimbalance = np.asarray([(1-classimbalance),classimbalance])
+weights = np.max(classimbalance)/classimbalance
+
+classratio = np.max(classimbalance)/np.min(classimbalance)
+downweight = 0.2*(classratio-1)/classratio # amount to de-emphasize the class imbalance
 
 if classimbalance[0]<0.47:
 
@@ -302,7 +305,7 @@ print("best accuracy = "+ str(valacc))
 print("on a bg acc of "+ str(valimbalance[0]) + ":" + str(valimbalance[1]))
 
 val_randomchance = np.max(valimbalance)
-#%%
+
 save_metrics(seed, best_val_loss.cpu().numpy().item(), valacc, val_randomchance, metricsout)
 
 # %%
