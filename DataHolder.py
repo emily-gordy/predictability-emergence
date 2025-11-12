@@ -854,20 +854,16 @@ class MPIInputOutput_SSPlist:
         gmthistorical = [1960,1990]
         gmthistoricalinds = [gmthistorical[0]-self.timerange[0],gmthistorical[1]-self.timerange[0]]
 
-        print('baseline for gmt is '+ str(gmthistoricalinds[0]) + ' ' + str(gmthistoricalinds[1]))
-
         # historicalinds = np.asarray(historicalera)-self.timerange[0]
 
         # timevecfull = np.arange(self.timerange[0], self.timerange[1]+1)
 
         historicalinds = [experimentera[0]-self.timerange[0],endhist-self.timerange[0]+self.outputavgtime]
-        print('experiment era in the historical is '+ str(historicalinds[0]) + ' ' + str(historicalinds[1]))
         # output_summermean = self.alloutput[0]
         # calculate record summers
 
         # exprange = [experiment_era[0]-timerange[0],experiment_era[1]-timerange[0]]
         baselineindices = [baselineera[0]-self.timerange[0],baselineera[1]-self.timerange[0]]
-        print('baseline for temp records is '+ str(baselineindices[0]) + ' ' + str(baselineindices[1]))
 
         recordtemps = np.zeros((len(self.ssplist),self.alloutput[0].shape[0],self.alloutput[0].shape[1]))
 
@@ -911,7 +907,6 @@ class MPIInputOutput_SSPlist:
             endind = None
 
         futureinds = [endhist-self.timerange[0]-self.inputlength,endind]
-        print('indices of future period are ' + str(futureinds[0]) + ' ' + str(futureinds[1]))
 
         for issp, ssp in enumerate(self.ssplist):
             # finally, work with output data

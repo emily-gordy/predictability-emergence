@@ -7,3 +7,4 @@ data/*
 *.nc
 *.pt
 metrics/*
+predictions/*

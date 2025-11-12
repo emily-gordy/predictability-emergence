@@ -21,8 +21,8 @@ import os
 
 #%% 
 
-# iseed = int(sys.argv[1])
-iseed = 0
+iseed = int(sys.argv[1])
+# iseed = 0
 
 # num_workers = int(os.environ.get('DATALOADER_WORKERS', 4))
 # print(f"Using {num_workers} DataLoader workers")
