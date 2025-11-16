@@ -3,12 +3,12 @@
 #SBATCH --job-name=trainnn
 #SBATCH --error=/nesi/nobackup/uoa04506/job_output/trainnn_cpu_%a.err
 #SBATCH --output=/nesi/nobackup/uoa04506/job_output/trainnn_cpu_%a.out
-#SBATCH --array=0-9
+#SBATCH --array=6
 #SBATCH --cpus-per-task=16
 #SBATCH --mem=48GB
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=emily.gordon@auckland.ac.nz
-#SBATCH --time=24:00:00
+#SBATCH --time=3:00:00
 #SBATCH --partition=milan
 
 source ~/miniconda3/bin/activate
