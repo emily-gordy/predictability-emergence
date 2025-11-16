@@ -173,7 +173,9 @@ _, _, alltest = AllData.trainvaltest_recordmax(trainvaltest,experiment_era,basel
 inputtest, inputtestGMT, _ = DataHolder.tensortime_onehot(alltest,nclasses=2)
 
 alltestpred = np.zeros((len(AllData.output_lon),n_best,len(inputtestGMT)))
+alltesttrue = np.zeros((len(AllData.output_lon),len(inputtestGMT)))
 testpredfile = "predictions/"+modelfilefront+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_testing.pkl"
+testtruefile = "predictions/"+modelfilefront+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_truetesting.pkl"
 
 for ilon,lon in enumerate(AllData.output_lon):
 
@@ -191,8 +193,8 @@ for ilon,lon in enumerate(AllData.output_lon):
 
         inputtest,inputtestGMT,outputtest = DataHolder.tensortime_onehot_inputoutput(alltest,outputtestall,nclasses=2)
         testtrueclass = np.argmax(outputtest.numpy(),axis=1)
+        alltesttrue[ilon] = testtrueclass
 
-        classimbalance = np.mean(outputtestall)
         testimbalance = np.mean(outputtestall)
         testimbalance = [(1-testimbalance),testimbalance]
         nullimbalance = np.max(np.asarray(testimbalance))
@@ -220,8 +222,10 @@ for ilon,lon in enumerate(AllData.output_lon):
 
         save_metrics(accuracy, testimbalance, testmetricsout)
 
-with open(testpredfile,'wb') as f:
-    pickle.dump(alltestpred,f)
+# with open(testpredfile,'wb') as f:
+#     pickle.dump(alltestpred,f)
 
+with open(testtruefile,'wb') as f:
+    pickle.dump(alltesttrue,f)
 
 # %%
