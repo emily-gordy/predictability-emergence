@@ -692,6 +692,8 @@ class MPIInputOutput_SSPlist:
             cutgmt = cutgmt[:,:-1]
         # average over sample dimension but keep that dimension
         avggmt = np.mean(cutgmt,axis=2,keepdims=True)
+
+        self.lenhisttime = avggmt.shape[1]
         # reshape it to 2D
         inputtrainGMTfull = np.reshape(avggmt[trainvaltest[0]], (len(trainvaltest[0]) * avggmt.shape[1], 1))
         inputvalGMTfull = np.reshape(avggmt[trainvaltest[1]], (len(trainvaltest[1]) * avggmt.shape[1], 1))
@@ -792,6 +794,7 @@ class MPIInputOutput_SSPlist:
                 cutgmt = cutgmt[:,:-1]
             # average over sample dimension but keep that dimension
             avggmt = np.mean(cutgmt,axis=2,keepdims=True)
+            self.lenfuturetime = avggmt.shape[1]
 
             # reshape it to 2D
             avggmtreshape_train = np.reshape(avggmt[trainvaltest[0]], (len(trainvaltest[0]) * avggmt.shape[1], 1))
@@ -897,6 +900,8 @@ class MPIInputOutput_SSPlist:
         outputrecordsummer = 1*(nevents>0) # any number >0 is a yes
         allsummer.append(nevents)
 
+        self.lenhisttime = outputrecordsummer.shape[1]
+
         # reshape it to 2D
         outputtrainfull = np.reshape(outputrecordsummer[trainvaltest[0]], (len(trainvaltest[0]) * outputrecordsummer.shape[1], 1))
         outputvalfull = np.reshape(outputrecordsummer[trainvaltest[1]], (len(trainvaltest[1]) * outputrecordsummer.shape[1], 1))
@@ -925,6 +930,7 @@ class MPIInputOutput_SSPlist:
 
             nevents = np.sum(cutoutput,axis=2)
             outputrecordsummer = 1*(nevents>0) # any number >0 is a yes
+            self.lenfuturetime = outputrecordsummer.shape[1]
 
             allsummer.append(nevents)
 
