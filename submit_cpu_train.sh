@@ -6,10 +6,10 @@
 #SBATCH --array=73-288
 #SBATCH --cpus-per-task=8
 #SBATCH --ntasks=1
-#SBATCH --mem=32GB
+#SBATCH --mem=40GB
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=emily.gordon@auckland.ac.nz
-#SBATCH --time=2:00:00
+#SBATCH --time=4:00:00
 #SBATCH --partition=milan
 
 source ~/miniconda3/bin/activate

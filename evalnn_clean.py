@@ -44,7 +44,7 @@ experiment_era = [1950,2100]
 baselineera = [1900,1950]
 
 inputlength = 10
-outputavgtime = 10
+outputavgtime = 5
 
 # data params
 outres = 10
@@ -222,8 +222,8 @@ for ilon,lon in enumerate(AllData.output_lon):
 
         save_metrics(accuracy, testimbalance, testmetricsout)
 
-# with open(testpredfile,'wb') as f:
-#     pickle.dump(alltestpred,f)
+with open(testpredfile,'wb') as f:
+    pickle.dump(alltestpred,f)
 
 with open(testtruefile,'wb') as f:
     pickle.dump(alltesttrue,f)

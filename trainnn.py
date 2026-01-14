@@ -39,7 +39,7 @@ experiment_era = [1950,2100]
 baselineera = [1900,1950]
 
 inputlength = 10
-outputavgtime = 10
+outputavgtime = 5
 
 # data params
 outres = 10
