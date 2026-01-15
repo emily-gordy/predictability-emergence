@@ -623,6 +623,7 @@ class MPIInputOutput_SSPlist:
         
         return nullval,nulltest
 
+
     def trainvaltest_recordmax(self,trainvaltest,experimentera,baselineera,inputlength,outputlength,latsel,lonsel):
 
         self.inputlength = inputlength
@@ -948,6 +949,118 @@ class MPIInputOutput_SSPlist:
         self.truesummer = allsummer
 
         return outputtrainfull, outputvalfull, outputtestfull
+
+
+    def trainvaltest_recordmax_ssps(self,trainvaltest,experimentera,baselineera,inputlength,outputlength):
+
+        self.inputlength = inputlength
+        self.outputavgtime = outputlength
+
+        allsummer = []
+
+        if latsel<0:
+            self.season = 2
+        else:
+            self.season = 8
+
+        # latindsel = np.argmin(np.abs((self.output_lat-latsel)))
+        # lonindsel = np.argmin(np.abs((self.output_lon-lonsel)))
+
+        # gmthistorical = [1960,1990]
+        # gmthistoricalinds = [gmthistorical[0]-self.timerange[0],gmthistorical[1]-self.timerange[0]]
+
+        # historicalinds = np.asarray(historicalera)-self.timerange[0]
+
+        # timevecfull = np.arange(self.timerange[0], self.timerange[1]+1)
+
+        historicalinds = [experimentera[0]-self.timerange[0],endhist-self.timerange[0]+self.outputavgtime]
+        # output_summermean = self.alloutput[0]
+        # calculate record summers
+
+        # exprange = [experiment_era[0]-timerange[0],experiment_era[1]-timerange[0]]
+        baselineindices = [baselineera[0]-self.timerange[0],baselineera[1]-self.timerange[0]]
+
+        recordtemps = np.zeros((len(self.ssplist),self.alloutput[0].shape[0],self.alloutput[0].shape[1]))
+
+        for issp,ssp in enumerate(self.ssplist):
+
+            histsel = self.alloutput[issp]
+            histsel = histsel[:,:,latindsel,lonindsel]
+
+            baseline = np.max(histsel[:,baselineindices[0]:baselineindices[1]],axis=1)
+            
+            for iens in range(histsel.shape[0]):
+
+                recordtemps[issp,iens,:] = find_records(histsel[iens,:],baseline[iens])
+
+        self.recordtemps = recordtemps
+
+        # binary classifier of record summer occurs or not
+
+        output_recordtemps_hist = recordtemps[0,:,historicalinds[0]:historicalinds[1]]
+        # stack it
+        stackedoutput = stackmatalongdim1(output_recordtemps_hist,self.outputavgtime)
+
+         # cut it
+        cutoutput = stackedoutput[:,self.inputlength:]
+        # control for season
+        if self.season==2:
+            cutoutput = cutoutput[:,1:]
+        # number of extremes in a future period
+        
+        nevents = np.sum(cutoutput,axis=2)
+        outputrecordsummer = 1*(nevents>0) # any number >0 is a yes
+        allsummer.append(nevents)
+
+        self.lenhisttime = outputrecordsummer.shape[1]
+
+        # reshape it to 2D
+        outputtrainfull = np.reshape(outputrecordsummer[trainvaltest[0]], (len(trainvaltest[0]) * outputrecordsummer.shape[1], 1))
+        outputvalfull = np.reshape(outputrecordsummer[trainvaltest[1]], (len(trainvaltest[1]) * outputrecordsummer.shape[1], 1))
+        outputtestfull = np.reshape(outputrecordsummer[trainvaltest[2]], (len(trainvaltest[2]) * outputrecordsummer.shape[1], 1))   
+
+        endind = -1*self.outputavgtime+1    
+        if endind == 0:
+            endind = None
+
+        futureinds = [endhist-self.timerange[0]-self.inputlength,endind]
+
+        for issp, ssp in enumerate(self.ssplist):
+            # finally, work with output data
+            # binary classifier of n year event or not
+            # stack it
+
+            output_recordtemps_future = recordtemps[issp,:,futureinds[0]:futureinds[1]]
+            # stack it
+            stackedoutput = stackmatalongdim1(output_recordtemps_future,self.outputavgtime)
+            # cut it
+            cutoutput = stackedoutput[:,self.inputlength:]
+            # control for season
+            if self.season==2:
+                cutoutput = cutoutput[:,1:]
+            # number of extremes in a future period
+
+            nevents = np.sum(cutoutput,axis=2)
+            outputrecordsummer = 1*(nevents>0) # any number >0 is a yes
+            self.lenfuturetime = outputrecordsummer.shape[1]
+
+            allsummer.append(nevents)
+
+            # reshape it to 2D
+
+            summerreshape_train = np.reshape(outputrecordsummer[trainvaltest[0]], (len(trainvaltest[0]) * outputrecordsummer.shape[1], 1))
+            summerreshape_val = np.reshape(outputrecordsummer[trainvaltest[1]], (len(trainvaltest[1]) * outputrecordsummer.shape[1], 1))
+            summerreshape_test = np.reshape(outputrecordsummer[trainvaltest[2]], (len(trainvaltest[2]) * outputrecordsummer.shape[1], 1))
+
+            outputtrainfull = np.append(outputtrainfull,summerreshape_train,axis=0)
+            outputvalfull = np.append(outputvalfull,summerreshape_val,axis=0)
+            outputtestfull = np.append(outputtestfull,summerreshape_test,axis=0)
+
+
+        self.truesummer = allsummer
+
+        return outputtrainfull, outputvalfull, outputtestfull
+
 
 
     def trainvaltest_historicalseasonalthreshold(self,trainvaltest,experimentera,baselineera,inputlength,outputlength,tpercentile,latsel,lonsel):

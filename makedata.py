@@ -1,5 +1,5 @@
 #%%
-import DataMaker
+import DataMakar
 import sys
 
 # some exp params
@@ -28,9 +28,9 @@ params = {
     "preciproll":preciproll,
 }
 
-# AllInputData = DataMaker.GriddedMPIAnnualMean(params)
-# AllOutputData = DataMaker.GriddedMPISummer(params)
-AllOutputpr = DataMaker.GriddedMPIPrecip(params)
-# AllGMTData = DataMaker.MPIGlobalMeanTemperature(params)
+# AllInputData = DataMakar.GriddedMPIAnnualMean(params)
+# AllOutputData = DataMakar.GriddedMPISummer(params)
+AllOutputpr = DataMakar.GriddedMPIPrecip(params)
+# AllGMTData = DataMakar.MPIGlobalMeanTemperature(params)
 
 # %%
