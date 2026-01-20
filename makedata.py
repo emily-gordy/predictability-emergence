@@ -30,7 +30,11 @@ params = {
 
 # AllInputData = DataMakar.GriddedMPIAnnualMean(params)
 # AllOutputData = DataMakar.GriddedMPISummer(params)
-AllOutputpr = DataMakar.GriddedMPIPrecip(params)
+# AllOutputpr = DataMakar.GriddedMPIPrecip(params)
 # AllGMTData = DataMakar.MPIGlobalMeanTemperature(params)
+
+AllInputERA = DataMakar.GriddedERA5AnnualMean(params)
+AllOutputERA = DataMakar.GriddedERA5Summer(params)
+AllGMTERA = DataMakar.ERA5GlobalMeanTemperature(params)
 
 # %%

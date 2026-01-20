@@ -9,6 +9,10 @@ from torch.nn.functional import one_hot
 
 
 endhist = 2014
+gmthistorical = [1960,1990]
+
+eravardict = {"tas":"t2m",
+              "tos":"sst"}
 
 class MPIOutputOnly:
     def __init__(self,params):
@@ -411,7 +415,7 @@ class MPIInputOutput_SSPlist:
         latindsel = np.argmin(np.abs((self.output_lat-latsel)))
         lonindsel = np.argmin(np.abs((self.output_lon-lonsel)))
 
-        gmthistorical = [1960,1990]
+        # gmthistorical = [1960,1990]
         gmthistoricalinds = [gmthistorical[0]-self.timerange[0],gmthistorical[1]-self.timerange[0]]
 
         print('baseline for gmt is '+ str(gmthistoricalinds[0]) + ' ' + str(gmthistoricalinds[1]))
@@ -639,7 +643,6 @@ class MPIInputOutput_SSPlist:
         latindsel = np.argmin(np.abs((self.output_lat-latsel)))
         lonindsel = np.argmin(np.abs((self.output_lon-lonsel)))
 
-        gmthistorical = [1960,1990]
         gmthistoricalinds = [gmthistorical[0]-self.timerange[0],gmthistorical[1]-self.timerange[0]]
 
         print('baseline for gmt is '+ str(gmthistoricalinds[0]) + ' ' + str(gmthistoricalinds[1]))
@@ -855,7 +858,7 @@ class MPIInputOutput_SSPlist:
         latindsel = np.argmin(np.abs((self.output_lat-latsel)))
         lonindsel = np.argmin(np.abs((self.output_lon-lonsel)))
 
-        gmthistorical = [1960,1990]
+        # gmthistorical = [1960,1990]
         gmthistoricalinds = [gmthistorical[0]-self.timerange[0],gmthistorical[1]-self.timerange[0]]
 
         # historicalinds = np.asarray(historicalera)-self.timerange[0]
@@ -951,7 +954,9 @@ class MPIInputOutput_SSPlist:
         return outputtrainfull, outputvalfull, outputtestfull
 
 
-    def trainvaltest_recordmax_ssps(self,trainvaltest,experimentera,baselineera,inputlength,outputlength):
+    def trainvaltest_recordmax_ssps(self,trainvaltest,experimentera,inputlength,outputlength,latsel):
+        
+        sspweight = [-0.2,-0.1,0,0.1,0.2]
 
         self.inputlength = inputlength
         self.outputavgtime = outputlength
@@ -963,103 +968,74 @@ class MPIInputOutput_SSPlist:
         else:
             self.season = 8
 
-        # latindsel = np.argmin(np.abs((self.output_lat-latsel)))
-        # lonindsel = np.argmin(np.abs((self.output_lon-lonsel)))
-
+        inputdims = self.allinput[0].shape[-2:]
         # gmthistorical = [1960,1990]
-        # gmthistoricalinds = [gmthistorical[0]-self.timerange[0],gmthistorical[1]-self.timerange[0]]
-
-        # historicalinds = np.asarray(historicalera)-self.timerange[0]
-
-        # timevecfull = np.arange(self.timerange[0], self.timerange[1]+1)
+        gmthistoricalinds = [gmthistorical[0]-self.timerange[0],gmthistorical[1]-self.timerange[0]]
 
         historicalinds = [experimentera[0]-self.timerange[0],endhist-self.timerange[0]+self.outputavgtime]
-        # output_summermean = self.alloutput[0]
-        # calculate record summers
 
-        # exprange = [experiment_era[0]-timerange[0],experiment_era[1]-timerange[0]]
-        baselineindices = [baselineera[0]-self.timerange[0],baselineera[1]-self.timerange[0]]
-
-        recordtemps = np.zeros((len(self.ssplist),self.alloutput[0].shape[0],self.alloutput[0].shape[1]))
-
-        for issp,ssp in enumerate(self.ssplist):
-
-            histsel = self.alloutput[issp]
-            histsel = histsel[:,:,latindsel,lonindsel]
-
-            baseline = np.max(histsel[:,baselineindices[0]:baselineindices[1]],axis=1)
-            
-            for iens in range(histsel.shape[0]):
-
-                recordtemps[issp,iens,:] = find_records(histsel[iens,:],baseline[iens])
-
-        self.recordtemps = recordtemps
-
-        # binary classifier of record summer occurs or not
-
-        output_recordtemps_hist = recordtemps[0,:,historicalinds[0]:historicalinds[1]]
+        gmt = self.allGMT[0]
+        gmt_hist = gmt[:,historicalinds[0]:historicalinds[1]]
         # stack it
-        stackedoutput = stackmatalongdim1(output_recordtemps_hist,self.outputavgtime)
-
-         # cut it
-        cutoutput = stackedoutput[:,self.inputlength:]
+        stackedgmt = stackmatalongdim1(gmt_hist,self.inputlength)
+        # cut it
+        cutgmt = stackedgmt[:,:-1*(self.outputavgtime)]
         # control for season
         if self.season==2:
-            cutoutput = cutoutput[:,1:]
-        # number of extremes in a future period
-        
-        nevents = np.sum(cutoutput,axis=2)
-        outputrecordsummer = 1*(nevents>0) # any number >0 is a yes
-        allsummer.append(nevents)
+            cutgmt = cutgmt[:,:-1]
+        # average over sample dimension but keep that dimension
+        avggmt = np.mean(cutgmt,axis=2,keepdims=True)
 
-        self.lenhisttime = outputrecordsummer.shape[1]
-
+        self.lenhisttime = avggmt.shape[1]
         # reshape it to 2D
-        outputtrainfull = np.reshape(outputrecordsummer[trainvaltest[0]], (len(trainvaltest[0]) * outputrecordsummer.shape[1], 1))
-        outputvalfull = np.reshape(outputrecordsummer[trainvaltest[1]], (len(trainvaltest[1]) * outputrecordsummer.shape[1], 1))
-        outputtestfull = np.reshape(outputrecordsummer[trainvaltest[2]], (len(trainvaltest[2]) * outputrecordsummer.shape[1], 1))   
+        inputtrainGMTfull = np.reshape(avggmt[trainvaltest[0]], (len(trainvaltest[0]) * avggmt.shape[1], 1))
+        inputvalGMTfull = np.reshape(avggmt[trainvaltest[1]], (len(trainvaltest[1]) * avggmt.shape[1], 1))
+        inputtestGMTfull = np.reshape(avggmt[trainvaltest[2]], (len(trainvaltest[2]) * avggmt.shape[1], 1))
+
+        inputtrainsspfull = sspweight[0]*np.ones(inputtrainGMTfull.shape)
+        inputvalsspfull = sspweight[0]*np.ones(inputvalGMTfull.shape)
+        inputtestsspfull = sspweight[0]*np.ones(inputtestGMTfull.shape)
 
         endind = -1*self.outputavgtime+1    
         if endind == 0:
             endind = None
 
         futureinds = [endhist-self.timerange[0]-self.inputlength,endind]
+        print('indices of future period are ' + str(futureinds[0]) + ' ' + str(futureinds[1]))
 
         for issp, ssp in enumerate(self.ssplist):
-            # finally, work with output data
-            # binary classifier of n year event or not
-            # stack it
 
-            output_recordtemps_future = recordtemps[issp,:,futureinds[0]:futureinds[1]]
+            print('working on ' + ssp)
+
+            gmt = self.allGMT[issp]
+            gmt_future = gmt[:,futureinds[0]:futureinds[1]]
+            # now work with GMT data
+
             # stack it
-            stackedoutput = stackmatalongdim1(output_recordtemps_future,self.outputavgtime)
+            stackedgmt = stackmatalongdim1(gmt_future,self.inputlength)
             # cut it
-            cutoutput = stackedoutput[:,self.inputlength:]
+            cutgmt = stackedgmt[:,:-1*(self.outputavgtime)]
             # control for season
             if self.season==2:
-                cutoutput = cutoutput[:,1:]
-            # number of extremes in a future period
-
-            nevents = np.sum(cutoutput,axis=2)
-            outputrecordsummer = 1*(nevents>0) # any number >0 is a yes
-            self.lenfuturetime = outputrecordsummer.shape[1]
-
-            allsummer.append(nevents)
+                cutgmt = cutgmt[:,:-1]
+            # average over sample dimension but keep that dimension
+            avggmt = np.mean(cutgmt,axis=2,keepdims=True)
+            self.lenfuturetime = avggmt.shape[1]
 
             # reshape it to 2D
+            avggmtreshape_train = np.reshape(avggmt[trainvaltest[0]], (len(trainvaltest[0]) * avggmt.shape[1], 1))
+            avggmtreshape_val = np.reshape(avggmt[trainvaltest[1]], (len(trainvaltest[1]) * avggmt.shape[1], 1))
+            avggmtreshape_test = np.reshape(avggmt[trainvaltest[2]], (len(trainvaltest[2]) * avggmt.shape[1], 1))
 
-            summerreshape_train = np.reshape(outputrecordsummer[trainvaltest[0]], (len(trainvaltest[0]) * outputrecordsummer.shape[1], 1))
-            summerreshape_val = np.reshape(outputrecordsummer[trainvaltest[1]], (len(trainvaltest[1]) * outputrecordsummer.shape[1], 1))
-            summerreshape_test = np.reshape(outputrecordsummer[trainvaltest[2]], (len(trainvaltest[2]) * outputrecordsummer.shape[1], 1))
+            ssptrain = sspweight[issp+1]*np.ones(avggmtreshape_train.shape)
+            sspval = sspweight[issp+1]*np.ones(avggmtreshape_val.shape)
+            ssptest = sspweight[issp+1]*np.ones(avggmtreshape_test.shape)
 
-            outputtrainfull = np.append(outputtrainfull,summerreshape_train,axis=0)
-            outputvalfull = np.append(outputvalfull,summerreshape_val,axis=0)
-            outputtestfull = np.append(outputtestfull,summerreshape_test,axis=0)
+            inputtrainsspfull = np.append(inputtrainsspfull,ssptrain,axis=0)
+            inputvalsspfull = np.append(inputvalsspfull,sspval,axis=0)
+            inputtestsspfull = np.append(inputtestsspfull,ssptest,axis=0)
 
-
-        self.truesummer = allsummer
-
-        return outputtrainfull, outputvalfull, outputtestfull
+        return inputtrainsspfull,inputvalsspfull,inputtestsspfull
 
 
 
@@ -1078,7 +1054,7 @@ class MPIInputOutput_SSPlist:
         latindsel = np.argmin(np.abs((self.output_lat-latsel)))
         lonindsel = np.argmin(np.abs((self.output_lon-lonsel)))
 
-        gmthistorical = [1960,1990]
+        # gmthistorical = [1960,1990]
         gmthistoricalinds = [gmthistorical[0]-self.timerange[0],gmthistorical[1]-self.timerange[0]]
 
         print('baseline for gmt is '+ str(gmthistoricalinds[0]) + ' ' + str(gmthistoricalinds[1]))
@@ -1280,7 +1256,7 @@ class MPIInputOutput_SSPlist:
         latindsel = np.argmin(np.abs((self.output_lat-latsel)))
         lonindsel = np.argmin(np.abs((self.output_lon-lonsel)))
 
-        gmthistorical = [1960,1990]
+        # gmthistorical = [1960,1990]
         gmthistoricalinds = [gmthistorical[0]-self.timerange[0],gmthistorical[1]-self.timerange[0]]
 
         print('baseline for gmt is '+ str(gmthistoricalinds[0]) + ' ' + str(gmthistoricalinds[1]))
@@ -1467,7 +1443,59 @@ class MPIInputOutput_SSPlist:
 
         return [inputtrainfull,  inputtrainGMTfull, outputtrainfull,], [inputvalfull, inputvalGMTfull, outputvalfull,], [inputtestfull, inputtestGMTfull,  outputtestfull] 
 
+class ERA5InputOutput:
+    def __init__(self,params):
 
+        inputvar = params["inputvar"]
+        inputvar = eravardict[inputvar]
+        outputvar = params["outputvar"]
+        outputvar = eravardict[outputvar]
+        self.timerange = params["timerange"]
+
+        alloutput = []
+        allGMT = []
+
+        inputfile = "data/ERA5_annualmean_" + inputvar + "_1940-2025.pkl"
+        infilecheck = glob.glob(inputfile)
+
+        if len(infilecheck)==0:
+            print('no input file, run DataMakar to make file')
+        else:
+            with open(inputfile,'rb') as f:
+                inputs = pickle.load(f)
+                input_annualmean = inputs[0]
+                self.input_lat = inputs[1]
+                self.input_lon = inputs[2]
+        allinput = input_annualmean
+
+        outputfile = "data/ERA5_summertime_" + outputvar + "_1940-2025.pkl"
+        outfilecheck = glob.glob(outputfile)
+
+        if len(outfilecheck)==0:
+            print('no output file, run DataMakar to make file')
+        else:
+            with open(outputfile,'rb') as f:
+                output = pickle.load(f)
+                output_summermean = output[0]
+                self.output_lat = output[1]
+                self.output_lon = output[2]
+
+        alloutput = output_summermean
+
+        gmtfile = "data/ERA5_annualmeanGMT_1940-2025.pkl"
+        gmtfilecheck = glob.glob(gmtfile)
+
+        if len(gmtfilecheck)==0:
+            print("no gmt file")
+        else:
+            with open(gmtfile,'rb') as f:
+                gmt = pickle.load(f)
+
+        allGMT = gmt
+
+        self.allinput = allinput
+        self.alloutput = alloutput
+        self.allGMT = allGMT
 
 
 def tensortime_multihot(listofmatrices):
