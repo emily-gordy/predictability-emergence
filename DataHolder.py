@@ -1450,7 +1450,7 @@ class ERA5InputOutput:
         inputvar = eravardict[inputvar]
         outputvar = params["outputvar"]
         outputvar = eravardict[outputvar]
-        self.timerange = params["timerange"]
+        self.obstimerange = params["obstimerange"]
 
         alloutput = []
         allGMT = []
@@ -1496,6 +1496,102 @@ class ERA5InputOutput:
         self.allinput = allinput
         self.alloutput = alloutput
         self.allGMT = allGMT
+
+    def obs_recordmax(self,experimentera_obs=[1960,2025],baselineera_obs=[1940,1960],inputlength=10,outputlength=10,latsel=0,lonsel=0):
+        
+        self.inputlength = inputlength
+        self.outputavgtime = outputlength
+
+        allsummer = []
+
+        if latsel<0:
+            self.season = 2
+        else:
+            self.season = 8
+
+        latindsel = np.argmin(np.abs((self.output_lat-latsel)))
+        lonindsel = np.argmin(np.abs((self.output_lon-lonsel)))
+
+        gmthistoricalinds = [gmthistorical[0]-self.obstimerange[0],gmthistorical[1]-self.obstimerange[0]]
+
+        chopind = experimentera_obs[0]-self.obstimerange[0]
+
+        print('baseline for gmt is '+ str(gmthistoricalinds[0]) + ' ' + str(gmthistoricalinds[1]))
+
+        # historicalinds = np.asarray(historicalera)-self.timerange[0]
+
+        # timevecfull = np.arange(self.timerange[0], self.timerange[1]+1)
+
+        inputdims = self.allinput[0].shape[-2:]
+        
+        input_annualmean = self.allinput 
+        input_annualmean = input_annualmean[chopind:] # chop off the baseline years
+
+        # first work with gridded input data, 
+        # stack it
+        stackedinput = stackobs(input_annualmean,self.inputlength)
+        # cut it
+        cutinput = stackedinput[:-1*(self.outputavgtime)] # time x lat x lon
+        self.cutinput = cutinput
+        # control for season
+        if self.season==2:
+            cutinput = cutinput[:-1] # time x lat x lon
+        # remove mean from sample dimension
+        inputmean = np.mean(cutinput,axis=1,keepdims=True)
+        anominput = cutinput-inputmean
+        # nan out land
+        landmask = np.isnan(anominput[0,0])
+        anominput[:,:,landmask] = 0
+
+        gmt = self.allGMT
+
+        # now work with GMT data
+        # make each sample anomaly from historical era mean
+        inputgmtmean = np.mean(gmt[gmthistoricalinds[0]:gmthistoricalinds[1]]) # just a number
+
+        inputgmtanom = gmt-inputgmtmean
+        inputgmtanom = inputgmtanom[chopind:]
+        # stack it
+        stackedgmt = stackobs(inputgmtanom,self.inputlength)
+        # cut it
+        cutgmt = stackedgmt[:-1*(self.outputavgtime)]
+        # control for season
+        if self.season==2:
+            cutgmt = cutgmt[:-1]
+        # average over sample dimension but keep that dimension
+        avggmt = np.mean(cutgmt,axis=1,keepdims=True)
+
+        baselineindices = [baselineera_obs[0]-self.obstimerange[0],baselineera_obs[1]-self.obstimerange[0]]
+        print('baseline for temp records is '+ str(baselineindices[0]) + ' ' + str(baselineindices[1]))
+
+        histsel = self.alloutput[:,latindsel,lonindsel]
+
+        baseline = np.max(histsel[baselineindices[0]:baselineindices[1]],axis=0)
+        
+        outputsummer = histsel[chopind:]
+        recordtemps = find_records(outputsummer,baseline)
+
+        self.recordtemps = recordtemps
+
+        # finally, work with output data
+        # binary classifier of record summer occurs or not
+
+        # stack it
+        stackedoutput = stackobs(recordtemps,self.outputavgtime)
+
+         # cut it
+        cutoutput = stackedoutput[self.inputlength:]
+        # control for season
+        if self.season==2:
+            cutoutput = cutoutput[1:]
+        # number of extremes in a future period
+        
+        nevents = np.sum(cutoutput,axis=1)
+        outputrecordsummer = 1*(nevents>0) # any number >0 is a yes
+
+        self.allevents = nevents
+
+        return anominput,avggmt,outputrecordsummer       
 
 
 def tensortime_multihot(listofmatrices):
@@ -1620,3 +1716,21 @@ def find_records(temps,baseline):
             current_max = temp
 
     return records
+
+def stackobs(mat,stacklength):
+
+    matshape = mat.shape
+    if len(matshape) == 3:
+        newshape = (matshape[0]-stacklength+1,stacklength,matshape[1],matshape[2])
+    elif len(matshape) == 1:
+        newshape = (matshape[0]-stacklength+1,stacklength)
+    else:
+        raise ValueError("Input matrix must be 2D or 4D")
+
+    newmat = np.empty(newshape)
+
+    for istack in range(newmat.shape[0]):
+
+        newmat[istack] = mat[istack:istack+stacklength]
+
+    return newmat  
