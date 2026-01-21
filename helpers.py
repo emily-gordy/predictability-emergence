@@ -1,4 +1,7 @@
+"""A wee module for useful lil functions"""
+
 import numpy as np
+import json
 
 def firstpositive(pred,gmtvec):
     if np.sum(pred[pred>0.5])>1:
@@ -45,3 +48,20 @@ def grabssp(data,issp,lenhist,lenfuture,nmems):
         dataout = data[nmems*(lenhist+(issp-1)*lenfuture):nmems*(lenhist+(issp)*lenfuture),]
     
     return dataout
+
+def get_best_files(filelist,n_best=3):
+    results = []
+    for file in filelist:
+        with open(file, 'r') as f:
+            results.append(json.load(f))
+    
+    allaccs = np.asarray([results[i]['val_accuracy'] for i in range(len(filelist))])
+    allnulls = np.asarray([results[i]['val_class_imbalance'] for i in range(len(filelist))])
+    allseeds = np.asarray([results[i]['seed'] for i in range(len(filelist))])
+    bestseedinds = np.argsort(allaccs-allnulls)[-n_best:]
+
+    # print(bestseedinds)
+
+    bestseeds = allseeds[bestseedinds]
+
+    return bestseeds

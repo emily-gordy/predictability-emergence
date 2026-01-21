@@ -7,6 +7,7 @@ import time
 import torch
 from torch.nn.functional import one_hot
 
+from scipy.stats import percentileofscore
 
 endhist = 2014
 gmthistorical = [1960,1990]
@@ -1038,7 +1039,6 @@ class MPIInputOutput_SSPlist:
         return inputtrainsspfull,inputvalsspfull,inputtestsspfull
 
 
-
     def trainvaltest_historicalseasonalthreshold(self,trainvaltest,experimentera,baselineera,inputlength,outputlength,tpercentile,latsel,lonsel):
 
         self.inputlength = inputlength
@@ -1566,10 +1566,14 @@ class ERA5InputOutput:
 
         histsel = self.alloutput[:,latindsel,lonindsel]
 
-        baseline = np.max(histsel[baselineindices[0]:baselineindices[1]],axis=0)
+        baseline = np.nanmax(histsel[baselineindices[0]:baselineindices[1]],axis=0)
+        self.baseline = baseline
         
         outputsummer = histsel[chopind:]
         recordtemps = find_records(outputsummer,baseline)
+
+        self.outputsummer = outputsummer
+        self.baselinepercentile = percentileofscore(outputsummer,baseline)
 
         self.recordtemps = recordtemps
 
