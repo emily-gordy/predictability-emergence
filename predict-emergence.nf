@@ -19,10 +19,10 @@ workflow {
 
 output {
     model { // Specify the output directory for the models
-        path 'output/models'
+        path 'models'
     }
 
     metrics { // Specify the output directory for the metrics
-        path 'output/metrics'
+        path 'metrics'
     }
 }
