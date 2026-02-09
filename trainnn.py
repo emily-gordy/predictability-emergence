@@ -25,15 +25,17 @@ import argparse
 
 parser = argparse.ArgumentParser(prog='myprogram')
 
-parser.add_argument('--lat', type=int, )
-parser.add_argument('--lon', type=int)
-parser.add_argument('--seed', type=int)
+parser.add_argument('--lat', type=int, default=0)
+parser.add_argument('--lon', type=int, default=0)
+parser.add_argument('--seed', type=int, default=0)
+parser.add_argument('--outputavgtime', type=int, default=5)
 
 args = parser.parse_args()
 
 lat = args.lat
 lon = args.lon
 iseed = args.seed
+outputavgtime = args.outputavgtime
 
 # igridpoint = int(sys.argv[1])
 
@@ -49,7 +51,7 @@ experiment_era = [1950,2100]
 baselineera = [1900,1950]
 
 inputlength = 10
-outputavgtime = 5
+# outputavgtime = 5
 
 # data params
 outres = 10
@@ -266,88 +268,91 @@ train_loader = DataLoader(traindataset,batch_size=batch_size,shuffle=True)
 valdataset = TensorDataset(inputval,inputvalGMT,outputval)
 val_loader = DataLoader(valdataset,batch_size=inputval.size(0),shuffle=False) # all val in one batch maybe bad idea
 
-fileout = "models/"+modelfilefront+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_lon"+str(lon)+"_seed"+str(seed)+".pt"
-metricsout = "metrics/"+modelfilefront+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_lon"+str(lon)+"_seed"+str(seed)+".json"
+# fileout = "models/"+modelfilefront+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_lon"+str(lon)+"_seed"+str(seed)+".pt"
+# metricsout = "metrics/"+modelfilefront+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_lon"+str(lon)+"_seed"+str(seed)+".json"
 
-filecheck = glob.glob(metricsout)
-if len(filecheck)==0:
+fileout = modelfilefront+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_lon"+str(lon)+"_seed"+str(seed)+".pt"
+metricsout = modelfilefront+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_lon"+str(lon)+"_seed"+str(seed)+".json"
 
-    outputtrainall, outputvalall, _ = AllData.trainvaltest_recordmax_outputonly(trainvaltest,experiment_era,baselineera,inputlength,outputavgtime,lat,lon)
+# filecheck = glob.glob(metricsout)
+# if len(filecheck)==0:
 
-    inputtrain,inputtrainGMT,outputtrain = DataHolder.tensortime_onehot_inputoutput(alltrain,outputtrainall,nclasses=2)
-    inputval,inputvalGMT,outputval = DataHolder.tensortime_onehot_inputoutput(allval,outputvalall,nclasses=2)
+outputtrainall, outputvalall, _ = AllData.trainvaltest_recordmax_outputonly(trainvaltest,experiment_era,baselineera,inputlength,outputavgtime,lat,lon)
 
-    traindataset = TensorDataset(inputtrain,inputtrainGMT,outputtrain)
-    train_loader = DataLoader(traindataset,batch_size=batch_size,shuffle=True,)#num_workers=num_workers)
+inputtrain,inputtrainGMT,outputtrain = DataHolder.tensortime_onehot_inputoutput(alltrain,outputtrainall,nclasses=2)
+inputval,inputvalGMT,outputval = DataHolder.tensortime_onehot_inputoutput(allval,outputvalall,nclasses=2)
 
-    valdataset = TensorDataset(inputval,inputvalGMT,outputval)
-    val_loader = DataLoader(valdataset,batch_size=inputval.size(0),shuffle=False) # all val in one batch maybe bad idea
+traindataset = TensorDataset(inputtrain,inputtrainGMT,outputtrain)
+train_loader = DataLoader(traindataset,batch_size=batch_size,shuffle=True,)#num_workers=num_workers)
 
-    # lightly weight the class imbalance
-    classimbalance = np.mean(outputtrainall)
-    if classimbalance>0: # cant train where it never happens
-        weights_corrected = lightclassweighting(classimbalance)
+valdataset = TensorDataset(inputval,inputvalGMT,outputval)
+val_loader = DataLoader(valdataset,batch_size=inputval.size(0),shuffle=False) # all val in one batch maybe bad idea
 
-        print(weights_corrected)
+# lightly weight the class imbalance
+classimbalance = np.mean(outputtrainall)
+if classimbalance>0: # cant train where it never happens
+    weights_corrected = lightclassweighting(classimbalance)
 
-        loss_fn = nn.CrossEntropyLoss(weight=weights_corrected)
+    print(weights_corrected)
 
-        valimbalance = np.mean(outputvalall)
-        valimbalance = [(1-valimbalance),valimbalance]
-        print("val imbalance is "+ str(valimbalance[0]) + ":" + str(valimbalance[1]))
+    loss_fn = nn.CrossEntropyLoss(weight=weights_corrected)
 
-        # train the model
+    valimbalance = np.mean(outputvalall)
+    valimbalance = [(1-valimbalance),valimbalance]
+    print("val imbalance is "+ str(valimbalance[0]) + ":" + str(valimbalance[1]))
 
-        cnn = buildmodel.CNNclassifier(inputtrain, inputtrainGMT, len(weights_corrected)).to(device)
+    # train the model
 
-        optimizer = optim.SGD(cnn.parameters(), 
-                        lr=lr,
-                        momentum=momentum,
-                        )
-        scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, threshold=1e-4, factor=0.1, patience=lr_patience, cooldown=lr_patience, min_lr=1e-5)
+    cnn = buildmodel.CNNclassifier(inputtrain, inputtrainGMT, len(weights_corrected)).to(device)
 
-        loss = []
+    optimizer = optim.SGD(cnn.parameters(), 
+                    lr=lr,
+                    momentum=momentum,
+                    )
+    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, threshold=1e-4, factor=0.1, patience=lr_patience, cooldown=lr_patience, min_lr=1e-5)
 
-        best_val_loss = np.inf
-        epochs_no_improve = 0
-        print('train loop')
-        for t in range(epochs):
-            print(f"Epoch {t+1}\n-------------------------------")
-            time1 = time.time()
+    loss = []
 
-            train_loop(train_loader, cnn, loss_fn, optimizer, device)
-            valid_loss = val_loop(val_loader, cnn, loss_fn, optimizer, scheduler, device)
+    best_val_loss = np.inf
+    epochs_no_improve = 0
+    print('train loop')
+    for t in range(epochs):
+        print(f"Epoch {t+1}\n-------------------------------")
+        time1 = time.time()
 
-            loss.append(valid_loss)
-            time2 = time.time()
-            print(f"{time2-time1:4f} seconds per epoch")
-            best_val_loss, earlystopping, epochs_no_improve = model_checkpoint(cnn,valid_loss,best_val_loss,epochs_no_improve,fileout,early_stopping_patience)
-            if earlystopping==1:
+        train_loop(train_loader, cnn, loss_fn, optimizer, device)
+        valid_loss = val_loop(val_loader, cnn, loss_fn, optimizer, scheduler, device)
 
-                print(f'Early stopping after {t+1} epochs.')
-                break
+        loss.append(valid_loss)
+        time2 = time.time()
+        print(f"{time2-time1:4f} seconds per epoch")
+        best_val_loss, earlystopping, epochs_no_improve = model_checkpoint(cnn,valid_loss,best_val_loss,epochs_no_improve,fileout,early_stopping_patience)
+        if earlystopping==1:
 
-        cnn.load_state_dict(torch.load(fileout, weights_only=True))
+            print(f'Early stopping after {t+1} epochs.')
+            break
 
-        with torch.no_grad():
-            cnn.eval()
-            valpred = cnn(inputval.to(device), inputvalGMT.to(device))
+    cnn.load_state_dict(torch.load(fileout, weights_only=True))
 
-        valpred = valpred.cpu().numpy()
+    with torch.no_grad():
+        cnn.eval()
+        valpred = cnn(inputval.to(device), inputvalGMT.to(device))
 
-        valpredclass = np.argmax(valpred,axis=1)
-        valtrueclass = np.argmax(outputval.numpy(),axis=1)
+    valpred = valpred.cpu().numpy()
 
-        valacc = np.mean(valpredclass==valtrueclass)
-        print("best accuracy = "+ str(valacc))
-        print("on a bg acc of "+ str(valimbalance[0]) + ":" + str(valimbalance[1]))
+    valpredclass = np.argmax(valpred,axis=1)
+    valtrueclass = np.argmax(outputval.numpy(),axis=1)
 
-        val_randomchance = np.max(valimbalance)
+    valacc = np.mean(valpredclass==valtrueclass)
+    print("best accuracy = "+ str(valacc))
+    print("on a bg acc of "+ str(valimbalance[0]) + ":" + str(valimbalance[1]))
 
-        save_metrics(seed, best_val_loss.cpu().numpy().item(), valacc, val_randomchance, metricsout)
+    val_randomchance = np.max(valimbalance)
 
-else:
-    print('file exists, moving on')
+    save_metrics(seed, best_val_loss.cpu().numpy().item(), valacc, val_randomchance, metricsout)
+
+# else:
+#     print('file exists, moving on')
 
 
 
