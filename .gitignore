@@ -9,3 +9,5 @@ data/*
 metrics/*
 predictions/*
 archive/*
+!data/inputs.csv
+!data/test_inputs.csv

@@ -3,7 +3,11 @@ include { train_predict } from './modules/train_predict/main.nf'
 workflow {
 
     main:
-    ch_input = Channel.fromPath(params.input)
+    ch_input = channel.fromPath(params.input)
+                .splitCsv( header: true )
+                .map {
+                    row -> [lon:row.LON, lat:row.LAT, seed:row.SEED]
+                }
 
     train_predict(ch_input)
 
@@ -14,11 +18,11 @@ workflow {
 }
 
 output {
-    model {
-        path 'output/models' 
+    model { // Specify the output directory for the models
+        path 'output/models'
     }
 
-    metrics {
+    metrics { // Specify the output directory for the metrics
         path 'output/metrics'
     }
 }
