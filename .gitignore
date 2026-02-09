@@ -10,5 +10,6 @@ metrics/*
 predictions/*
 archive/*
 .nextflow*
+work/*
 !data/inputs.csv
 !data/test_inputs.csv
