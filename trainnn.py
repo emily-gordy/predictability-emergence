@@ -19,13 +19,23 @@ import glob
 import sys
 import json
 import os
+import argparse
 
 #%% 
 
-# iseed = int(sys.argv[1])
-# iseed = 1
+parser = argparse.ArgumentParser(prog='myprogram')
 
-igridpoint = int(sys.argv[1])
+parser.add_argument('--lat', type=int, )
+parser.add_argument('--lon', type=int)
+parser.add_argument('--seed', type=int)
+
+args = parser.parse_args()
+
+lat = args.lat
+lon = args.lon
+iseed = args.seed
+
+# igridpoint = int(sys.argv[1])
 
 # num_workers = int(os.environ.get('DATALOADER_WORKERS', 4))
 # print(f"Using {num_workers} DataLoader workers")
@@ -59,8 +69,8 @@ with open(landmaskfile,'rb') as f:
 landlat = land[0]
 landlon = land[1]
 
-lat = landlat[igridpoint]
-lon = landlon[igridpoint]
+# lat = landlat[igridpoint]
+# lon = landlon[igridpoint]
 
 ntrain = 25
 nval = 13
@@ -235,107 +245,109 @@ print(f"Using device: {device}")
 
 # split data
 
-for iseed,seed in enumerate(seedlist):
+# for iseed,seed in enumerate(seedlist):
 
-    torch.manual_seed(seed)
-    np.random.seed(seed)
+seed = seedlist[iseed]
 
-    trainval = np.random.choice(ntrain+nval,ntrain+nval,replace=False)
+torch.manual_seed(seed)
+np.random.seed(seed)
 
-    trainvaltest = [trainval[:ntrain],trainval[ntrain:ntrain+nval],test]
-    alltrain, allval, _ = AllData.trainvaltest_recordmax(trainvaltest,experiment_era,baselineera,inputlength,outputavgtime,lat,lon)
+trainval = np.random.choice(ntrain+nval,ntrain+nval,replace=False)
 
-    inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_onehot(alltrain,nclasses=2)
-    inputval, inputvalGMT, outputval = DataHolder.tensortime_onehot(allval,nclasses=2)
+trainvaltest = [trainval[:ntrain],trainval[ntrain:ntrain+nval],test]
+alltrain, allval, _ = AllData.trainvaltest_recordmax(trainvaltest,experiment_era,baselineera,inputlength,outputavgtime,lat,lon)
+
+inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_onehot(alltrain,nclasses=2)
+inputval, inputvalGMT, outputval = DataHolder.tensortime_onehot(allval,nclasses=2)
+
+traindataset = TensorDataset(inputtrain,inputtrainGMT,outputtrain)
+train_loader = DataLoader(traindataset,batch_size=batch_size,shuffle=True)
+
+valdataset = TensorDataset(inputval,inputvalGMT,outputval)
+val_loader = DataLoader(valdataset,batch_size=inputval.size(0),shuffle=False) # all val in one batch maybe bad idea
+
+fileout = "models/"+modelfilefront+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_lon"+str(lon)+"_seed"+str(seed)+".pt"
+metricsout = "metrics/"+modelfilefront+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_lon"+str(lon)+"_seed"+str(seed)+".json"
+
+filecheck = glob.glob(metricsout)
+if len(filecheck)==0:
+
+    outputtrainall, outputvalall, _ = AllData.trainvaltest_recordmax_outputonly(trainvaltest,experiment_era,baselineera,inputlength,outputavgtime,lat,lon)
+
+    inputtrain,inputtrainGMT,outputtrain = DataHolder.tensortime_onehot_inputoutput(alltrain,outputtrainall,nclasses=2)
+    inputval,inputvalGMT,outputval = DataHolder.tensortime_onehot_inputoutput(allval,outputvalall,nclasses=2)
 
     traindataset = TensorDataset(inputtrain,inputtrainGMT,outputtrain)
-    train_loader = DataLoader(traindataset,batch_size=batch_size,shuffle=True)
+    train_loader = DataLoader(traindataset,batch_size=batch_size,shuffle=True,)#num_workers=num_workers)
 
     valdataset = TensorDataset(inputval,inputvalGMT,outputval)
     val_loader = DataLoader(valdataset,batch_size=inputval.size(0),shuffle=False) # all val in one batch maybe bad idea
 
-    fileout = "models/"+modelfilefront+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_lon"+str(lon)+"_seed"+str(seed)+".pt"
-    metricsout = "metrics/"+modelfilefront+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_lon"+str(lon)+"_seed"+str(seed)+".json"
+    # lightly weight the class imbalance
+    classimbalance = np.mean(outputtrainall)
+    if classimbalance>0: # cant train where it never happens
+        weights_corrected = lightclassweighting(classimbalance)
 
-    filecheck = glob.glob(metricsout)
-    if len(filecheck)==0:
+        print(weights_corrected)
 
-        outputtrainall, outputvalall, _ = AllData.trainvaltest_recordmax_outputonly(trainvaltest,experiment_era,baselineera,inputlength,outputavgtime,lat,lon)
+        loss_fn = nn.CrossEntropyLoss(weight=weights_corrected)
 
-        inputtrain,inputtrainGMT,outputtrain = DataHolder.tensortime_onehot_inputoutput(alltrain,outputtrainall,nclasses=2)
-        inputval,inputvalGMT,outputval = DataHolder.tensortime_onehot_inputoutput(allval,outputvalall,nclasses=2)
+        valimbalance = np.mean(outputvalall)
+        valimbalance = [(1-valimbalance),valimbalance]
+        print("val imbalance is "+ str(valimbalance[0]) + ":" + str(valimbalance[1]))
 
-        traindataset = TensorDataset(inputtrain,inputtrainGMT,outputtrain)
-        train_loader = DataLoader(traindataset,batch_size=batch_size,shuffle=True,)#num_workers=num_workers)
+        # train the model
 
-        valdataset = TensorDataset(inputval,inputvalGMT,outputval)
-        val_loader = DataLoader(valdataset,batch_size=inputval.size(0),shuffle=False) # all val in one batch maybe bad idea
+        cnn = buildmodel.CNNclassifier(inputtrain, inputtrainGMT, len(weights_corrected)).to(device)
 
-        # lightly weight the class imbalance
-        classimbalance = np.mean(outputtrainall)
-        if classimbalance>0: # cant train where it never happens
-            weights_corrected = lightclassweighting(classimbalance)
+        optimizer = optim.SGD(cnn.parameters(), 
+                        lr=lr,
+                        momentum=momentum,
+                        )
+        scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, threshold=1e-4, factor=0.1, patience=lr_patience, cooldown=lr_patience, min_lr=1e-5)
 
-            print(weights_corrected)
+        loss = []
 
-            loss_fn = nn.CrossEntropyLoss(weight=weights_corrected)
+        best_val_loss = np.inf
+        epochs_no_improve = 0
+        print('train loop')
+        for t in range(epochs):
+            print(f"Epoch {t+1}\n-------------------------------")
+            time1 = time.time()
 
-            valimbalance = np.mean(outputvalall)
-            valimbalance = [(1-valimbalance),valimbalance]
-            print("val imbalance is "+ str(valimbalance[0]) + ":" + str(valimbalance[1]))
+            train_loop(train_loader, cnn, loss_fn, optimizer, device)
+            valid_loss = val_loop(val_loader, cnn, loss_fn, optimizer, scheduler, device)
 
-            # train the model
+            loss.append(valid_loss)
+            time2 = time.time()
+            print(f"{time2-time1:4f} seconds per epoch")
+            best_val_loss, earlystopping, epochs_no_improve = model_checkpoint(cnn,valid_loss,best_val_loss,epochs_no_improve,fileout,early_stopping_patience)
+            if earlystopping==1:
 
-            cnn = buildmodel.CNNclassifier(inputtrain, inputtrainGMT, len(weights_corrected)).to(device)
+                print(f'Early stopping after {t+1} epochs.')
+                break
 
-            optimizer = optim.SGD(cnn.parameters(), 
-                            lr=lr,
-                            momentum=momentum,
-                            )
-            scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, threshold=1e-4, factor=0.1, patience=lr_patience, cooldown=lr_patience, min_lr=1e-5)
+        cnn.load_state_dict(torch.load(fileout, weights_only=True))
 
-            loss = []
+        with torch.no_grad():
+            cnn.eval()
+            valpred = cnn(inputval.to(device), inputvalGMT.to(device))
 
-            best_val_loss = np.inf
-            epochs_no_improve = 0
-            print('train loop')
-            for t in range(epochs):
-                print(f"Epoch {t+1}\n-------------------------------")
-                time1 = time.time()
+        valpred = valpred.cpu().numpy()
 
-                train_loop(train_loader, cnn, loss_fn, optimizer, device)
-                valid_loss = val_loop(val_loader, cnn, loss_fn, optimizer, scheduler, device)
+        valpredclass = np.argmax(valpred,axis=1)
+        valtrueclass = np.argmax(outputval.numpy(),axis=1)
 
-                loss.append(valid_loss)
-                time2 = time.time()
-                print(f"{time2-time1:4f} seconds per epoch")
-                best_val_loss, earlystopping, epochs_no_improve = model_checkpoint(cnn,valid_loss,best_val_loss,epochs_no_improve,fileout,early_stopping_patience)
-                if earlystopping==1:
+        valacc = np.mean(valpredclass==valtrueclass)
+        print("best accuracy = "+ str(valacc))
+        print("on a bg acc of "+ str(valimbalance[0]) + ":" + str(valimbalance[1]))
 
-                    print(f'Early stopping after {t+1} epochs.')
-                    break
+        val_randomchance = np.max(valimbalance)
 
-            cnn.load_state_dict(torch.load(fileout, weights_only=True))
+        save_metrics(seed, best_val_loss.cpu().numpy().item(), valacc, val_randomchance, metricsout)
 
-            with torch.no_grad():
-                cnn.eval()
-                valpred = cnn(inputval.to(device), inputvalGMT.to(device))
-
-            valpred = valpred.cpu().numpy()
-
-            valpredclass = np.argmax(valpred,axis=1)
-            valtrueclass = np.argmax(outputval.numpy(),axis=1)
-
-            valacc = np.mean(valpredclass==valtrueclass)
-            print("best accuracy = "+ str(valacc))
-            print("on a bg acc of "+ str(valimbalance[0]) + ":" + str(valimbalance[1]))
-
-            val_randomchance = np.max(valimbalance)
-
-            save_metrics(seed, best_val_loss.cpu().numpy().item(), valacc, val_randomchance, metricsout)
-    
-    else:
-        print('file exists, moving on')
+else:
+    print('file exists, moving on')
 
 
 
