@@ -5,8 +5,8 @@ process train_predict {
     tuple val(lat), val(lon), val(seed)
 
     output:
-    path('MPI_recordtemp_avgtime_${params.outputavgtime}_allssps_lat_${lat}_lon_${lon}_seed_${seed}.json'), emit: metrics
-    path('MPI_recordtemp_avgtime_${params.outputavgtime}_allssps_lat_${lat}_lon_${lon}_seed_${seed}.pt'), emit: model
+    path "MPI_recordtemp_avgtime_${params.outputavgtime}_allssps_lat_${lat}_lon_${lon}_seed_${seed}.json", emit: metrics
+    path "MPI_recordtemp_avgtime_${params.outputavgtime}_allssps_lat_${lat}_lon_${lon}_seed_${seed}.pt", emit: model
 
     script:
     """

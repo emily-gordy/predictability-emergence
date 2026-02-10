@@ -3,13 +3,14 @@ include { train_predict } from './modules/train_predict/main.nf'
 workflow {
 
     main:
-    ch_input = channel.fromPath(params.input)
+    input_ch = channel.fromPath(params.input)
                 .splitCsv( header: true )
                 .map {
                     row -> [lon:row.LON, lat:row.LAT, seed:row.SEED]
                 }
+                // .view() // View the input channel to verify the data is being read correctly
 
-    train_predict(ch_input)
+    train_predict(input_ch)
 
     publish: // Specify the outputs you want published into the output directory
         model = train_predict.out.model
