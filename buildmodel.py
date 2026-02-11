@@ -1,4 +1,5 @@
 """Build models"""
+"""Module for building CNN"""
 
 import torch
 import torch.nn as nn
