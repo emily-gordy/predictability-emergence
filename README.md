@@ -20,3 +20,28 @@ In `nextflow.config` there are a couple of relevant parameters.
 
 The Nextflow training materials just got updated.
 [Intro course for building pipelines](https://training.nextflow.io/latest/hello_nextflow/) has fresh youtube videos to boot.
+
+## Jen's notes on what's actually happening
+
+Initial data prep done in `makedata.py`, sets up several pickled datasets (Gridded ERA5 Annual Mean and Summer and ERA5 Global Mean)
+
+`trainnn.py` gets pickled data using `DataHolder.py`, does a bunch of prep, then weights/trains model and saves both a model file and metrics file.
+
+`evalnn.py` takes all the metrics files for a given latitude (?) and finds the best models.
+It then saves info about the best models in a new pickle dump.
+
+### next steps
+
+refactoring:
+
+- get all the parameters being hardcoded and change to reading in from json file. this can easily convert to a nextflow input params file if wanted/needed.
+- determine lowest level inputs (something is needed from ERA5 I believe)
+- add testing!
+  - easy to set up test for eval step, just give some fake metrics
+- currently doing a pickle dump from evalnn, what is the actual desired output?
+
+testing/validation:
+
+- how do we know if it is working?
+- how do we know if it is broken?
+- what is the minimum input needed to test each step versus full pipeline?
