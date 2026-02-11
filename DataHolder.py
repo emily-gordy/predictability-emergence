@@ -1,4 +1,6 @@
-# DataHolder for grabbing pre-made data
+"""Module for generating processed data for CNN
+    Requires pickled data generated in makedata.py
+    """
 
 import numpy as np
 import glob
