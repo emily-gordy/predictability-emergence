@@ -23,11 +23,13 @@ The Nextflow training materials just got updated.
 
 ## Jen's notes on what's actually happening
 
+(`/nesi/nobackup/uoa04506/predictability-emergence`)
+
 Initial data prep done in `makedata.py`, sets up several pickled datasets (Gridded ERA5 Annual Mean and Summer and ERA5 Global Mean)
 
 `trainnn.py` gets pickled data using `DataHolder.py`, does a bunch of prep, then weights/trains model and saves both a model file and metrics file.
 
-`evalnn.py` takes all the metrics files for a given latitude (?) and finds the best models.
+`evalnn_clean.py` takes all the metrics files for a given latitude (?) and finds the best models.
 It then saves info about the best models in a new pickle dump.
 
 ### next steps
