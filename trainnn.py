@@ -1,5 +1,4 @@
 #!/usr/bin/env python3
-# %%
 
 import DataHolder
 import buildmodel
@@ -23,21 +22,12 @@ import json
 import os
 import argparse
 
-# %%
+import logging
 
-parser = argparse.ArgumentParser(prog="myprogram")
-
-parser.add_argument("--lat", type=int, default=0)
-parser.add_argument("--lon", type=int, default=0)
-parser.add_argument("--seed", type=int, default=0)
-parser.add_argument("--outputavgtime", type=int, default=5)
-
-args = parser.parse_args()
-
-lat = args.lat
-lon = args.lon
-iseed = args.seed
-outputavgtime = args.outputavgtime
+logging.basicConfig(
+    format = '%(asctime)s - %(levelname)s %(message)s',
+    datefmt = '%Y/%m/%d %H:%M:%S'
+    )
 
 # igridpoint = int(sys.argv[1])
 
@@ -146,7 +136,7 @@ def train_loop(dataloader, cnn, loss_fn, optimizer, device):
 
         if batch % 100 == 0:
             loss, current = loss.item(), batch * batch_size + len(x1)
-            print(f"loss: {loss:>7f}  [{current:>5d}/{size:>5d}]")
+            logger.info("loss: {%s:>7f}  [{%s:>5d}/{%s:>5d}]", loss, current, size)
 
 
 def val_loop(dataloader, model, loss_fn, optimizer, scheduler, device):
@@ -428,5 +418,21 @@ if classimbalance > 0:  # cant train where it never happens
 # else:
 #     print('file exists, moving on')
 
+def main():
+    parser = argparse.ArgumentParser(prog="trainnn")
+
+    parser.add_argument("--lat", type=int, default=0)
+    parser.add_argument("--lon", type=int, default=0)
+    parser.add_argument("--seed", type=int, default=0)
+    parser.add_argument("--outputavgtime", type=int, default=5)
+
+    args = parser.parse_args()
+
+    lat = args.lat
+    lon = args.lon
+    iseed = args.seed
+    outputavgtime = args.outputavgtime
 
 # %%
+if __name__ == '__main__':
+    main()
