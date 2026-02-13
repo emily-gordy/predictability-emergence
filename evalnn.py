@@ -196,10 +196,10 @@ def main():
 
     for ilon,lon in enumerate(AllData.output_lon):
 
-        metricsout = "metrics/"+model_file_front+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_lon"+str(lon)+"_seed*.json"
+        metricsout = model_file_front+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_lon"+str(lon)+"_seed*.json"
         filelist = glob.glob(metricsout)
 
-        testmetricsout = "metrics/"+model_file_front+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_lon"+str(lon)+"_testing.json"
+        testmetricsout = model_file_front+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_lon"+str(lon)+"_testing.json"
 
         if len(filelist)!=0:
             logging.info("Models exist, proceeding")
@@ -220,7 +220,7 @@ def main():
             for iseed,seed in enumerate(bestseeds):
                 # load the model
 
-                loadfile = "models/"+model_file_front+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_lon"+str(lon)+"_seed"+str(seed)+".pt"
+                loadfile = model_file_front+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_lon"+str(lon)+"_seed"+str(seed)+".pt"
                 cnn = buildmodel.CNNclassifier(inputtest, inputtestGMT, 2).to('cpu')
                 cnn.load_state_dict(torch.load(loadfile,map_location=torch.device('cpu'), weights_only=False))
                 cnn.to(device)
