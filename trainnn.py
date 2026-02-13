@@ -1,5 +1,6 @@
 #!/usr/bin/env python3
 
+import datetime
 import DataHolder
 import buildmodel
 
@@ -15,22 +16,16 @@ import torch.optim.lr_scheduler as lr_scheduler
 import torch.nn.functional as F
 import time
 
-import pickle
-import glob
-import sys
 import json
-import os
 import argparse
 import logging
 
-logging.basicConfig(
-    format="%(asctime)s - %(levelname)s %(message)s", datefmt="%Y/%m/%d %H:%M:%S"
-)
+logger = logging.getLogger("trainnn.py")
 
 # training/validation functions
 
 
-def train_loop(dataloader, cnn, loss_fn, optimizer, device):
+def train_loop(dataloader, cnn, loss_fn, optimizer, device, batch_size):
 
     size = len(dataloader.dataset)
 
@@ -50,7 +45,7 @@ def train_loop(dataloader, cnn, loss_fn, optimizer, device):
 
         if batch % 100 == 0:
             loss, current = loss.item(), batch * batch_size + len(x1)
-            logging.info("loss: {%s:>7f}  [{%s:>5d}/{%s:>5d}]", loss, current, size)
+            logger.info("loss: %s [%s/%s]", loss, current, size)
 
 
 def val_loop(dataloader, model, loss_fn, optimizer, scheduler, device):
@@ -79,16 +74,16 @@ def val_loop(dataloader, model, loss_fn, optimizer, scheduler, device):
             )  # This returns a tensor of losses for each item in the batch
             all_losses.append(batch_losses.item())  # Convert tensor to scalar and store
     # Compute the overall loss (sum of individual losses divided by the number of samples)
-    valid_loss = batch_losses.mean()
+    valid_loss = batch_losses.mean() # should this be all_losses?
 
     all_pred = np.asarray(all_pred)[:, 1]
     all_true = np.asarray(all_true)
 
-    logging.info("validation loss: {%s:>7f}", valid_loss)
+    logger.info("validation loss: %s", valid_loss)
 
     scheduler.step(valid_loss)
     after_lr = optimizer.param_groups[0]["lr"]
-    logging.info("learning rate: {%s:>7f}", after_lr)
+    logger.info("learning rate: %s", after_lr)
 
     return valid_loss
 
@@ -99,13 +94,13 @@ def model_checkpoint(
 
     if val_loss < best_val_loss:
         best_val_loss = val_loss
-        logging.info("Loss improved, saving model to %s", fileout)
+        logger.info("Loss improved, saving model to %s", fileout)
         torch.save(model.state_dict(), fileout)
         epochs_no_improve = 0
         earlystopping = 0
     else:
         epochs_no_improve += 1
-        logging.info("Loss did not improve.")
+        logger.info("Loss did not improve.")
         if epochs_no_improve == patience:
             earlystopping = 1
         else:
@@ -156,6 +151,25 @@ def lightclassweighting(positiveclassimbalance, device):
     return weights_corrected
 
 def main():
+    # setting up logging
+    # log_filename = datetime.datetime.now().strftime("trainnn_%Y-%m-%d.log")
+    logging.basicConfig(level=logging.DEBUG,
+                    format='%(asctime)s %(name)-12s %(levelname)-8s %(message)s',
+                    datefmt='%m-%d %H:%M',
+                    # filename=log_filename,
+                    # filemode='w'
+                    )
+    # define a Handler which writes INFO messages or higher to the sys.stderr
+    console = logging.StreamHandler()
+    console.setLevel(logging.INFO)
+    # set a format which is simpler for console use
+    formatter = logging.Formatter('%(name)-12s: %(levelname)-8s %(message)s')
+    # tell the handler to use this format
+    console.setFormatter(formatter)
+    # add the handler to the root logger
+    logging.getLogger().addHandler(console)
+
+    # setting up parser
     parser = argparse.ArgumentParser(prog="trainnn")
     # main parameters
     parser.add_argument("--lat", type=int, default=0)
@@ -174,6 +188,16 @@ def main():
     parser.add_argument("--model_file_front", type=str, default="MPI_recordtemp_")
     parser.add_argument("--input_var", type=str, default="tos")
     parser.add_argument("--output_var", type=str, default="tas")
+    parser.add_argument("--n_train", type=int, default=25)
+    parser.add_argument("--n_val", type=int, default=13)
+    parser.add_argument("--test", nargs=2, type=int, default=[38, 49])
+    parser.add_argument("--batch_size", type=int, default=128)
+    parser.add_argument("--lr", type=float, default=0.05)
+    # parser.add_argument("--ridge_pen", type=float, default=1e-6) # is this used?
+    parser.add_argument("--lr_patience", type=int, default=7)
+    parser.add_argument("--early_stopping_patience", type=int, default=20)
+    parser.add_argument("--epochs", type=int, default=200)
+    parser.add_argument("--momentum", type=float, default=0.5)
 
     args = parser.parse_args()
 
@@ -181,7 +205,7 @@ def main():
     lon = args.lon
     iseed = args.seed
     outputavgtime = args.outputavgtime
-    ssplist = args.ssps
+    ssp_list = args.ssps
     experiment_era = args.experiment_era
     baseline_era = args.baseline_era
     input_length = args.input_length
@@ -192,59 +216,31 @@ def main():
     model_file_front = args.model_file_front
     input_var = args.input_var
     output_var = args.output_var
-
-    # # grab grid point
-    # landmaskfile = "landmask" + str(out_res) + "x" + str(out_res) + ".pkl"
-
-    # with open(landmaskfile, "rb") as f:
-    #     land = pickle.load(f)
-
-    ntrain = 25
-    nval = 13
-    test = np.arange(38, 50)
-
-    seedlist = [
-        62469869,
-        71856281,
-        47621498,
-        10431957,
-        50561320,
-        72166634,
-        18469465,
-        92895735,
-        57693846,
-        22284750,
-    ]
-
-    # some training params
-
-    batch_size = 128
-    lr = 0.05
-    ridge_pen = 1e-6
-    lr_patience = 7
-    early_stopping_patience = 20
-    epochs = 200
-
-    momentum = 0.5
+    n_train = args.n_train
+    n_val = args.n_val
+    test = np.array(args.test)
+    batch_size = args.batch_size
+    lr = args.lr
+    # ridge_pen = args.ridge_pen
+    lr_patience = args.lr_patience
+    early_stopping_patience = args.early_stopping_patience
+    epochs = args.epochs
+    momentum = args.momentum
 
     # make parameter dictionary to be passed to DataHolder
-
     params = {
         "input_length": input_length,
         "outputavgtime": outputavgtime,
         "out_res": out_res,
-        "time_range": time_range,
-        "file_front": file_front,
-        "in_res": in_res,
-        "input_var": input_var,
-        "output_var": output_var,
-        "seedlist": seedlist,
+        "timerange": time_range,
+        "filefront": file_front,
+        "inres": in_res,
+        "inputvar": input_var,
+        "outputvar": output_var,
     }
-
     # get the data
 
-    AllData = DataHolder.MPIInputOutput_SSPlist(params, ssplist)
-    landmask = np.isnan(AllData.alloutput[0][0, 0])
+    AllData = DataHolder.MPIInputOutput_SSPlist(params, ssp_list)
 
     if torch.cuda.is_available():
         device = "cuda"
@@ -252,22 +248,19 @@ def main():
         device = "mps"
     else:
         device = "cpu"
-    logging.info("Using device: %s", device)
+    logger.info("Using device: %s", device)
 
     # split data
-
-    # for iseed,seed in enumerate(seedlist):
-
-    seed = seedlist[iseed]
+    seed = iseed
 
     torch.manual_seed(seed)
     np.random.seed(seed)
 
-    trainval = np.random.choice(ntrain + nval, ntrain + nval, replace=False)
+    train_val = np.random.choice(n_train + n_val, n_train + n_val, replace=False)
 
-    trainvaltest = [trainval[:ntrain], trainval[ntrain : ntrain + nval], test]
+    train_valtest = [train_val[:n_train], train_val[n_train : n_train + n_val], test]
     alltrain, allval, _ = AllData.trainvaltest_recordmax(
-        trainvaltest, experiment_era, baseline_era, input_length, outputavgtime, lat, lon
+        train_valtest, experiment_era, baseline_era, input_length, outputavgtime, lat, lon
     )
 
     inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_onehot(
@@ -312,7 +305,7 @@ def main():
     # if len(filecheck)==0:
 
     outputtrainall, outputvalall, _ = AllData.trainvaltest_recordmax_outputonly(
-        trainvaltest, experiment_era, baseline_era, input_length, outputavgtime, lat, lon
+        train_valtest, experiment_era, baseline_era, input_length, outputavgtime, lat, lon
     )
 
     inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_onehot_inputoutput(
@@ -345,8 +338,8 @@ def main():
 
         valimbalance = np.mean(outputvalall)
         valimbalance = [(1 - valimbalance), valimbalance]
-        logging.info(
-            "val imbalance is {%s:>7f}:{%s:>7f}", valimbalance[0], valimbalance[1]
+        logger.info(
+            "val imbalance is %s:%s", valimbalance[0], valimbalance[1]
         )
 
         # train the model
@@ -373,19 +366,19 @@ def main():
 
         best_val_loss = np.inf
         epochs_no_improve = 0
-        logging.info("Starting training loop for seed %d", seed)
+        logger.info("Starting training loop for seed %d", seed)
         for t in range(epochs):
-            logging.info("Epoch %d\n-------------------------------", t + 1)
+            logger.info("\nEpoch %d\n-------------------------------", t + 1)
             time1 = time.time()
 
-            train_loop(train_loader, cnn, loss_fn, optimizer, device)
+            train_loop(train_loader, cnn, loss_fn, optimizer, device, batch_size)
             valid_loss = val_loop(
                 val_loader, cnn, loss_fn, optimizer, scheduler, device
             )
 
             loss.append(valid_loss)
             time2 = time.time()
-            logging.info("%s seconds per epoch", time2 - time1)
+            logger.info("%s seconds per epoch", time2 - time1)
             best_val_loss, earlystopping, epochs_no_improve = model_checkpoint(
                 cnn,
                 valid_loss,
@@ -395,7 +388,7 @@ def main():
                 early_stopping_patience,
             )
             if earlystopping == 1:
-                logging.info("Early stopping after %d epochs.", t + 1)
+                logger.info("Early stopping after %d epochs.", t + 1)
                 break
 
         cnn.load_state_dict(torch.load(fileout, weights_only=True))
@@ -410,7 +403,7 @@ def main():
         valtrueclass = np.argmax(outputval.numpy(), axis=1)
 
         valacc = np.mean(valpredclass == valtrueclass)
-        logging.info(
+        logger.info(
             "Best validation accuracy: %f on a bg acc of %f:%f",
             valacc,
             valimbalance[0],

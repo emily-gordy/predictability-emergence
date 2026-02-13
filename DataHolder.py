@@ -27,6 +27,9 @@ class MPIOutputOnly:
         outputfile = "data/" + filefront +"summertime_" + ssp + "_" + outputvar + ".pkl"
         outfilecheck = glob.glob(outputfile)
 
+        self.summermean = None
+        self.lat = None
+        self.lon = None
         if len(outfilecheck)==0:
             print('no output file, run DataMaker to make file')
         else:
@@ -53,6 +56,9 @@ class MPIInputOutput:
         print(inputfile)
         infilecheck = glob.glob(inputfile)
 
+        self.input_annualmean = None
+        self.input_lat = None
+        self.input_lon = None
         if len(infilecheck)==0:
             print('no input file, run DataMaker to make file')
         else:
@@ -65,6 +71,9 @@ class MPIInputOutput:
         outputfile = "data/" + filefront +"summertime_" + ssp + "_" + outputvar + ".pkl"
         outfilecheck = glob.glob(outputfile)
 
+        self.output_summermean = None
+        self.output_lat = None
+        self.output_lon = None
         if len(outfilecheck)==0:
             print('no output file, run DataMaker to make file')
         else:
@@ -364,6 +373,7 @@ class MPIInputOutput_SSPlist:
             print(inputfile)
             infilecheck = glob.glob(inputfile)
 
+            input_annualmean = None
             if len(infilecheck)==0:
                 print('no input file, run DataMaker to make file')
             else:
@@ -372,11 +382,14 @@ class MPIInputOutput_SSPlist:
                     input_annualmean = inputs[0]
                     self.input_lat = inputs[1]
                     self.input_lon = inputs[2]
-            allinput.append(input_annualmean)
+            
+            if input_annualmean is not None:
+                allinput.append(input_annualmean)
 
             outputfile = "data/" + filefront +"summertime_" + ssp + "_" + outputvar + "_"+str(self.timerange[0])+"-"+str(self.timerange[1])+".pkl"
             outfilecheck = glob.glob(outputfile)
 
+            output_summermean = None
             if len(outfilecheck)==0:
                 print('no output file, run DataMaker to make file')
             else:
@@ -386,18 +399,21 @@ class MPIInputOutput_SSPlist:
                     self.output_lat = output[1]
                     self.output_lon = output[2]
 
-            alloutput.append(output_summermean)
+            if output_summermean is not None:
+                alloutput.append(output_summermean)
 
             gmtfile = "data/" + filefront +"annualmeanGMT_" + ssp + "_"+str(self.timerange[0])+"-"+str(self.timerange[1])+".pkl"
             gmtfilecheck = glob.glob(gmtfile)
 
+            gmt = None
             if len(gmtfilecheck)==0:
                 print("no gmt file")
             else:
                 with open(gmtfile,'rb') as f:
                     gmt = pickle.load(f)
 
-            allGMT.append(gmt)
+            if gmt is not None:
+                allGMT.append(gmt)
 
         self.allinput = allinput
         self.alloutput = alloutput

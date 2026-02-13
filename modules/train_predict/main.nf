@@ -10,6 +10,26 @@ process train_predict {
 
     script:
     """
-    trainnn.py --lat ${lat} --seed ${seed} --lon ${lon} --outputavgtime ${params.outputavgtime}
+    trainnn.py --lat ${lat} --seed ${seed} --lon ${lon} \
+        --outputavgtime ${params.outputavgtime} \
+        --ssps ${params.ssps} \
+        --experiment_era ${params.experiment_era} \
+        --baseline_era ${params.baseline_era} \
+        --input_length ${params.input_length} \
+        --in_res ${params.in_res} \
+        --out_res ${params.out_res} \
+        --time_range ${params.time_range} \
+        --file_front ${params.file_front} \
+        --model_file_front ${params.model_file_front} \
+        --input_var ${params.input_var} \
+        --output_var ${params.output_var} \
+        --n_train ${params.n_train} \
+        --n_val ${params.n_val} \
+        --test ${params.test} \
+        --batch_size ${params.batch_size} \
+        --lr ${params.lr} \
+        --early_stopping_patience ${params.early_stopping_patience} \
+        --epochs ${params.epochs} \
+        --momentum ${params.momentum}
     """
 }
