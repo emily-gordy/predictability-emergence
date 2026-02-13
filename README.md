@@ -25,6 +25,8 @@ The Nextflow training materials just got updated.
 
 (`/nesi/nobackup/uoa04506/predictability-emergence`)
 
+`conda activate /nesi/nobackup/nesi99999/jreeve/predictability-emergence/ml-env`
+
 Initial data prep done in `makedata.py`, sets up several pickled datasets (Gridded ERA5 Annual Mean and Summer and ERA5 Global Mean)
 
 `trainnn.py` gets pickled data using `DataHolder.py`, does a bunch of prep, then weights/trains model and saves both a model file and metrics file.
