@@ -92,8 +92,6 @@ def main():
     parser = argparse.ArgumentParser(prog="trainnn")
     # main parameters
     parser.add_argument("--lat", type=int, default=0)
-    parser.add_argument("--lon", type=int, default=0)
-    parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--n_best", type=int, default=3)
     # just in case parameters
     parser.add_argument("--outputavgtime", type=int, default=5)
@@ -122,8 +120,6 @@ def main():
     args = parser.parse_args()
 
     lat = args.lat
-    lon = args.lon
-    seed = args.seed
     n_best = args.n_best
     outputavgtime = args.outputavgtime
     ssp_list = args.ssps
@@ -175,9 +171,6 @@ def main():
     landmask = np.isnan(AllData.alloutput[0][0,0])
 
     # split data
-
-    torch.manual_seed(seed)
-    np.random.seed(seed)
 
     dummylon = 0
 

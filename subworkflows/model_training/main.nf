@@ -12,6 +12,8 @@ workflow {
 
     train_predict(input_ch)
 
+    
+
     publish: // Specify the outputs you want published into the output directory
         model = train_predict.out.model
         metrics = train_predict.out.metrics

@@ -2,15 +2,15 @@ process evalnn {
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(lat), val(lon), val(seed)
+    tuple val(lat)
 
     output:
-    path "MPI_recordtemp_avgtime_${params.outputavgtime}_allssps_lat_${lat}_lon_${lon}_seed_${seed}.json", emit: metrics
-    path "MPI_recordtemp_avgtime_${params.outputavgtime}_allssps_lat_${lat}_lon_${lon}_seed_${seed}.pt", emit: model
+    path "MPI_recordtemp_avgtime_${params.outputavgtime}_allssps_lat_${lat}_testing.pkl", emit: testing
+    path "MPI_recordtemp_avgtime_${params.outputavgtime}_allssps_lat_${lat}_truetesting.pkl", emit: true_testing
 
     script:
     """
-    evalnn.py --lat ${lat} --seed ${seed} --lon ${lon} \
+    evalnn.py --lat ${lat} \
         --n_best ${params.n_best}
         --outputavgtime ${params.outputavgtime} \
         --ssps ${params.ssps} \

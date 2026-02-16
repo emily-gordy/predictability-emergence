@@ -31,15 +31,13 @@ Initial data prep done in `makedata.py`, sets up several pickled datasets (Gridd
 
 `trainnn.py` gets pickled data using `DataHolder.py`, does a bunch of prep, then weights/trains model and saves both a model file and metrics file.
 
-`evalnn_clean.py` takes all the metrics files for a given latitude (?) and finds the best models.
+`evalnn.py` takes all the metrics files for a given latitude (?) and finds the best models.
 It then saves info about the best models in a new pickle dump.
 
 ### next steps
 
 refactoring:
 
-- get all the parameters being hardcoded and change to reading in from json file. this can easily convert to a nextflow input params file if wanted/needed.
-- determine lowest level inputs (something is needed from ERA5 I believe)
 - add testing!
   - easy to set up test for eval step, just give some fake metrics
 - currently doing a pickle dump from evalnn, what is the actual desired output?
