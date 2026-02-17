@@ -2,11 +2,11 @@ process evalnn {
     conda "${moduleDir}/environment.yml"
 
     input:
-    tuple val(lat)
+    // path 
 
     output:
-    path "MPI_recordtemp_avgtime_${params.outputavgtime}_allssps_lat_${lat}_testing.pkl", emit: testing
-    path "MPI_recordtemp_avgtime_${params.outputavgtime}_allssps_lat_${lat}_truetesting.pkl", emit: true_testing
+    path "MPI_recordtemp_avgtime_${params.outputavgtime}_allssps_lat_${lat}_testing.pkl", emit: model_pred
+    path "MPI_recordtemp_avgtime_${params.outputavgtime}_allssps_lat_${lat}_truetesting.pkl", emit: baseline_pred
 
     script:
     """
@@ -31,6 +31,7 @@ process evalnn {
         --lr ${params.lr} \
         --early_stopping_patience ${params.early_stopping_patience} \
         --epochs ${params.epochs} \
-        --momentum ${params.momentum}
+        --momentum ${params.momentum} \
+        --data_dir ${params.data_dir}
     """
 }

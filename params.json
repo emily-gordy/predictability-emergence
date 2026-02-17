@@ -18,5 +18,5 @@
   "lr_patience": 7,
   "early_stopping_patience": 20,
   "epochs": 200,
-  "momentum": 0.5,
+  "momentum": 0.5
 }

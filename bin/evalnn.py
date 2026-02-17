@@ -116,6 +116,7 @@ def main():
     parser.add_argument("--early_stopping_patience", type=int, default=20)
     parser.add_argument("--epochs", type=int, default=200)
     parser.add_argument("--momentum", type=float, default=0.5)
+    parser.add_argument("--data_dir", type=str, default="../data/")
 
     args = parser.parse_args()
 
@@ -143,6 +144,7 @@ def main():
     early_stopping_patience = args.early_stopping_patience
     epochs = args.epochs
     momentum = args.momentum
+    data_dir = args.data_dir
 
     # make parameter dictionary to be passed to DataHolder
     params = {
@@ -154,6 +156,7 @@ def main():
         "inres": in_res,
         "inputvar": input_var,
         "outputvar": output_var,
+        "data_dir": data_dir,
     }
 
     if torch.cuda.is_available():

@@ -1,31 +1,32 @@
-include { train_predict } from './modules/train_predict/main.nf'
+include { train_predict } from '../../modules/train_predict/main.nf'
+include { evalnn } from '../../modules/evalnn/main.nf'
 
-workflow {
+workflow MODEL_TRAINING {
+    take:
+    input_ch // This should be passed from the main workflow
 
     main:
-    input_ch = channel.fromPath(params.input)
-                .splitCsv( header: true )
-                .map {
-                    row -> [lon:row.LON, lat:row.LAT, seed:row.SEED]
-                }
-                // .view() // View the input channel to verify the data is being read correctly
-
     train_predict(input_ch)
 
-    
+    scores = train_predict.out.metrics
+                .map {
+                    lat, lon, seed, file ->
+                    [[lat, lon, seed], file.splitJson()[4]]
+                }
+                .map {
+                    meta, json ->
+                    [meta + json]
+                }
+                // .splitJson()
+                // .map { v -> v.score }
+                .view()
 
-    publish: // Specify the outputs you want published into the output directory
+    // add evalnn step
+
+    emit: // Specify the outputs you want published into the output directory
         model = train_predict.out.model
         metrics = train_predict.out.metrics
+        // baseline_pred = evalnn.out.baseline_pred
+        // model_pred = evalnn.out.model_pred
 
-}
-
-output {
-    model { // Specify the output directory for the models
-        path 'models'
-    }
-
-    metrics { // Specify the output directory for the metrics
-        path 'metrics'
-    }
 }

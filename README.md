@@ -41,9 +41,17 @@ refactoring:
 - add testing!
   - easy to set up test for eval step, just give some fake metrics
 - currently doing a pickle dump from evalnn, what is the actual desired output?
+- comment on or change file naming scheme to work for floats for lat/lon inputs
+- add scoring to trainnn.py and remove from evalnn.py
 
 testing/validation:
 
 - how do we know if it is working?
 - how do we know if it is broken?
 - what is the minimum input needed to test each step versus full pipeline?
+
+### questions for Emily
+
+- what is the 'test' parameter in trainnn.py? it is used in line 262, it was originally `np.arange(38, 50)`
+- in `DataHolder.py`, there are a couple of references to the `MPIInputOutput_SSPlist` object having an attribute `output_lat`/`output_lon` which breaks things
+- related, I'm just somewhat confused what all the classes in DataHolder are doing with their functions
