@@ -273,6 +273,7 @@ np.random.seed(seed)
 trainval = np.random.choice(ntrain + nval, ntrain + nval, replace=False)
 
 trainvaltest = [trainval[:ntrain], trainval[ntrain : ntrain + nval], test]
+
 alltrain, allval, _ = AllData.trainvaltest_recordmax(
     trainvaltest, experiment_era, baselineera, inputlength, outputavgtime, lat, lon
 )
@@ -321,31 +322,9 @@ metricsout = (
 # filecheck = glob.glob(metricsout)
 # if len(filecheck)==0:
 
-outputtrainall, outputvalall, _ = AllData.trainvaltest_recordmax_outputonly(
-    trainvaltest, experiment_era, baselineera, inputlength, outputavgtime, lat, lon
-)
-
-inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_onehot_inputoutput(
-    alltrain, outputtrainall, nclasses=2
-)
-inputval, inputvalGMT, outputval = DataHolder.tensortime_onehot_inputoutput(
-    allval, outputvalall, nclasses=2
-)
-
-traindataset = TensorDataset(inputtrain, inputtrainGMT, outputtrain)
-train_loader = DataLoader(
-    traindataset,
-    batch_size=batch_size,
-    shuffle=True,
-)  # num_workers=num_workers)
-
-valdataset = TensorDataset(inputval, inputvalGMT, outputval)
-val_loader = DataLoader(
-    valdataset, batch_size=inputval.size(0), shuffle=False
-)  # all val in one batch maybe bad idea
 
 # lightly weight the class imbalance
-classimbalance = np.mean(outputtrainall)
+classimbalance = np.mean(alltrain[-1].squeeze())
 if classimbalance > 0:  # cant train where it never happens
     weights_corrected = lightclassweighting(classimbalance)
 
@@ -353,7 +332,7 @@ if classimbalance > 0:  # cant train where it never happens
 
     loss_fn = nn.CrossEntropyLoss(weight=weights_corrected)
 
-    valimbalance = np.mean(outputvalall)
+    valimbalance = np.mean(allval[-1].squeeze())
     valimbalance = [(1 - valimbalance), valimbalance]
     print("val imbalance is " + str(valimbalance[0]) + ":" + str(valimbalance[1]))
 
@@ -427,6 +406,7 @@ if classimbalance > 0:  # cant train where it never happens
 
 # else:
 #     print('file exists, moving on')
+
 
 
 # %%

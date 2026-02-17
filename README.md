@@ -30,6 +30,19 @@ Initial data prep done in `makedata.py`, sets up several pickled datasets (Gridd
 `evalnn.py` takes all the metrics files for a given latitude (?) and finds the best models.
 It then saves info about the best models in a new pickle dump.
 
+## Emily's notes on some things to look for in the outputs of trainnn and evalnn
+
+`trainnn.py`
+
+* *.pt output is a pytorch model weights file
+* *.json is a file of scores for the trained convolutional neural network (CNN) specified by lat, lon, seed
+  * best_val_loss is the CNN's categorical cross-entropy loss on the validation data. It is a float that can have positive or negative values, but is usually positive. Note I don't use this as an input anywhere else but I would like to have it somewhere if needed.
+  * val_accuracy is the CNN's accuracy on the testing data (number of correct predictions / total number of validation samples). It is a float on [0,1] and should be >0.5 but may not if only training for a few epochs
+  * val_class_imbalance is (number of samples in the most common class / total number of validation samples). It is a float on [0.5,1]
+
+`evalnn.py`
+
+
 ### next steps
 
 refactoring:
