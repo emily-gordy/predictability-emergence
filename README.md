@@ -86,6 +86,7 @@ outputs
 #### The Science!
 
 I am currently working in the two jupyter notebooks `FirstPredict.ipynb` and `ObsPredict.ipynb` which have some descriptions about how I am using the outputs from the trained NNs and the testing predictions.
+
 ### questions for Emily
 
 - what is the 'test' parameter in trainnn.py? it is used in line 262, it was originally `np.arange(38, 50)`
