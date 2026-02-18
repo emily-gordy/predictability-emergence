@@ -305,34 +305,8 @@ def main():
         + ".json"
     )
 
-    # filecheck = glob.glob(metricsout)
-    # if len(filecheck)==0:
-
-    outputtrainall, outputvalall, _ = AllData.trainvaltest_recordmax_outputonly(
-        train_valtest, experiment_era, baseline_era, input_length, outputavgtime, lat, lon
-    )
-
-    inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_onehot_inputoutput(
-        alltrain, outputtrainall, nclasses=2
-    )
-    inputval, inputvalGMT, outputval = DataHolder.tensortime_onehot_inputoutput(
-        allval, outputvalall, nclasses=2
-    )
-
-    traindataset = TensorDataset(inputtrain, inputtrainGMT, outputtrain)
-    train_loader = DataLoader(
-        traindataset,
-        batch_size=batch_size,
-        shuffle=True,
-    )  # num_workers=num_workers)
-
-    valdataset = TensorDataset(inputval, inputvalGMT, outputval)
-    val_loader = DataLoader(
-        valdataset, batch_size=inputval.size(0), shuffle=False
-    )  # all val in one batch maybe bad idea
-
     # lightly weight the class imbalance
-    classimbalance = np.mean(outputtrainall)
+    classimbalance = np.mean(alltrain[-1].squeeze())
     if classimbalance > 0:  # cant train where it never happens
         weights_corrected = lightclassweighting(classimbalance, device)
 
@@ -340,7 +314,7 @@ def main():
 
         loss_fn = nn.CrossEntropyLoss(weight=weights_corrected)
 
-        valimbalance = np.mean(outputvalall)
+        valimbalance = np.mean(allval[-1].squeeze())
         valimbalance = [(1 - valimbalance), valimbalance]
         logger.info(
             "val imbalance is %s:%s", valimbalance[0], valimbalance[1]
