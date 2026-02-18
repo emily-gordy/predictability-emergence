@@ -23,6 +23,10 @@ The Nextflow training materials just got updated.
 
 ## Jen's notes on what's actually happening
 
+(`/nesi/nobackup/uoa04506/predictability-emergence`)
+
+`conda activate /nesi/nobackup/nesi99999/jreeve/predictability-emergence/ml-env`
+
 Initial data prep done in `makedata.py`, sets up several pickled datasets (Gridded ERA5 Annual Mean and Summer and ERA5 Global Mean)
 
 `trainnn.py` gets pickled data using `DataHolder.py`, does a bunch of prep, then weights/trains model and saves both a model file and metrics file.
@@ -34,11 +38,11 @@ It then saves info about the best models in a new pickle dump.
 
 refactoring:
 
-- get all the parameters being hardcoded and change to reading in from json file. this can easily convert to a nextflow input params file if wanted/needed.
-- determine lowest level inputs (something is needed from ERA5 I believe)
 - add testing!
   - easy to set up test for eval step, just give some fake metrics
 - currently doing a pickle dump from evalnn, what is the actual desired output?
+- comment on or change file naming scheme to work for floats for lat/lon inputs
+- add scoring to trainnn.py and remove from evalnn.py
 
 testing/validation:
 
@@ -82,3 +86,9 @@ outputs
 #### The Science!
 
 I am currently working in the two jupyter notebooks `FirstPredict.ipynb` and `ObsPredict.ipynb` which have some descriptions about how I am using the outputs from the trained NNs and the testing predictions.
+
+### questions for Emily
+
+- what is the 'test' parameter in trainnn.py? it is used in line 262, it was originally `np.arange(38, 50)`
+- in `DataHolder.py`, there are a couple of references to the `MPIInputOutput_SSPlist` object having an attribute `output_lat`/`output_lon` which breaks things
+- related, I'm just somewhat confused what all the classes in DataHolder are doing with their functions

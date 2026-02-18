@@ -23,10 +23,14 @@ class MPIOutputOnly:
         ssp = params["ssp"]
         outputvar = params["outputvar"]
         self.timerange = params["timerange"]
+        self.datadir = params["data_dir"]
 
-        outputfile = "data/" + filefront +"summertime_" + ssp + "_" + outputvar + ".pkl"
+        outputfile = self.datadir + "/" + filefront +"summertime_" + ssp + "_" + outputvar + ".pkl"
         outfilecheck = glob.glob(outputfile)
 
+        self.summermean = None
+        self.lat = None
+        self.lon = None
         if len(outfilecheck)==0:
             print('no output file, run DataMaker to make file')
         else:
@@ -48,11 +52,15 @@ class MPIInputOutput:
         inputvar = params["inputvar"]
         outputvar = params["outputvar"]
         self.timerange = params["timerange"]
+        self.datadir = params["data_dir"]
 
-        inputfile = "data/" + filefront +"annualmean_" + ssp + "_" + inputvar + ".pkl"
+        inputfile = self.datadir + "/" + filefront +"annualmean_" + ssp + "_" + inputvar + ".pkl"
         print(inputfile)
         infilecheck = glob.glob(inputfile)
 
+        self.input_annualmean = None
+        self.input_lat = None
+        self.input_lon = None
         if len(infilecheck)==0:
             print('no input file, run DataMaker to make file')
         else:
@@ -62,9 +70,12 @@ class MPIInputOutput:
                 self.input_lat = allinput[1]
                 self.input_lon = allinput[2]
 
-        outputfile = "data/" + filefront +"summertime_" + ssp + "_" + outputvar + ".pkl"
+        outputfile = self.datadir + "/" + filefront +"summertime_" + ssp + "_" + outputvar + ".pkl"
         outfilecheck = glob.glob(outputfile)
 
+        self.output_summermean = None
+        self.output_lat = None
+        self.output_lon = None
         if len(outfilecheck)==0:
             print('no output file, run DataMaker to make file')
         else:
@@ -74,7 +85,7 @@ class MPIInputOutput:
                 self.output_lat = alloutput[1]
                 self.output_lon = alloutput[2]
 
-        gmtfile = "data/" + filefront +"annualmeanGMT_" + ssp + "_" + ".pkl"
+        gmtfile = self.datadir + "/" + filefront +"annualmeanGMT_" + ssp + "_" + ".pkl"
         gmtfilecheck = glob.glob(gmtfile)
 
         if len(gmtfilecheck)==0:
@@ -353,6 +364,9 @@ class MPIInputOutput_SSPlist:
         outputvar = params["outputvar"]
         self.timerange = params["timerange"]
         self.ssplist = ssplist
+        self.datadir = params["data_dir"]
+        self.output_lat = 0
+        self.output_lon = 0
 
         allinput = []
         alloutput = []
@@ -360,10 +374,11 @@ class MPIInputOutput_SSPlist:
 
         for issp, ssp in enumerate(ssplist):
 
-            inputfile = "data/" + filefront +"annualmean_" + ssp + "_" + inputvar + "_"+str(self.timerange[0])+"-"+str(self.timerange[1])+".pkl"
+            inputfile = self.datadir + "/" + filefront +"annualmean_" + ssp + "_" + inputvar + "_"+str(self.timerange[0])+"-"+str(self.timerange[1])+".pkl"
             print(inputfile)
             infilecheck = glob.glob(inputfile)
 
+            input_annualmean = None
             if len(infilecheck)==0:
                 print('no input file, run DataMaker to make file')
             else:
@@ -372,11 +387,14 @@ class MPIInputOutput_SSPlist:
                     input_annualmean = inputs[0]
                     self.input_lat = inputs[1]
                     self.input_lon = inputs[2]
-            allinput.append(input_annualmean)
+            
+            if input_annualmean is not None:
+                allinput.append(input_annualmean)
 
-            outputfile = "data/" + filefront +"summertime_" + ssp + "_" + outputvar + "_"+str(self.timerange[0])+"-"+str(self.timerange[1])+".pkl"
+            outputfile = self.datadir + "/" + filefront +"summertime_" + ssp + "_" + outputvar + "_"+str(self.timerange[0])+"-"+str(self.timerange[1])+".pkl"
             outfilecheck = glob.glob(outputfile)
 
+            output_summermean = None
             if len(outfilecheck)==0:
                 print('no output file, run DataMaker to make file')
             else:
@@ -386,18 +404,21 @@ class MPIInputOutput_SSPlist:
                     self.output_lat = output[1]
                     self.output_lon = output[2]
 
-            alloutput.append(output_summermean)
+            if output_summermean is not None:
+                alloutput.append(output_summermean)
 
-            gmtfile = "data/" + filefront +"annualmeanGMT_" + ssp + "_"+str(self.timerange[0])+"-"+str(self.timerange[1])+".pkl"
+            gmtfile = self.datadir + "/" + filefront +"annualmeanGMT_" + ssp + "_"+str(self.timerange[0])+"-"+str(self.timerange[1])+".pkl"
             gmtfilecheck = glob.glob(gmtfile)
 
+            gmt = None
             if len(gmtfilecheck)==0:
                 print("no gmt file")
             else:
                 with open(gmtfile,'rb') as f:
                     gmt = pickle.load(f)
 
-            allGMT.append(gmt)
+            if gmt is not None:
+                allGMT.append(gmt)
 
         self.allinput = allinput
         self.alloutput = alloutput
@@ -1453,11 +1474,12 @@ class ERA5InputOutput:
         outputvar = params["outputvar"]
         outputvar = eravardict[outputvar]
         self.obstimerange = params["obstimerange"]
+        self.datadir = params["data_dir"]
 
         alloutput = []
         allGMT = []
 
-        inputfile = "data/ERA5_annualmean_" + inputvar + "_1940-2025.pkl"
+        inputfile = self.datadir + "/" + "ERA5_annualmean_" + inputvar + "_1940-2025.pkl"
         infilecheck = glob.glob(inputfile)
 
         if len(infilecheck)==0:
@@ -1470,7 +1492,7 @@ class ERA5InputOutput:
                 self.input_lon = inputs[2]
         allinput = input_annualmean
 
-        outputfile = "data/ERA5_summertime_" + outputvar + "_1940-2025.pkl"
+        outputfile = self.datadir + "/" + "ERA5_summertime_" + outputvar + "_1940-2025.pkl"
         outfilecheck = glob.glob(outputfile)
 
         if len(outfilecheck)==0:
@@ -1484,7 +1506,7 @@ class ERA5InputOutput:
 
         alloutput = output_summermean
 
-        gmtfile = "data/ERA5_annualmeanGMT_1940-2025.pkl"
+        gmtfile = self.datadir + "/" + "ERA5_annualmeanGMT_1940-2025.pkl"
         gmtfilecheck = glob.glob(gmtfile)
 
         if len(gmtfilecheck)==0:

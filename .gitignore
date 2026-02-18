@@ -1,4 +1,5 @@
 __pycache__/*
+*/__pycache__
 models/*
 data/*
 .vscode/*
@@ -11,5 +12,7 @@ predictions/*
 archive/*
 .nextflow*
 work/*
+runInfo/*
+outputs/*
 !data/inputs.csv
 !data/test_inputs.csv
