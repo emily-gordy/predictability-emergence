@@ -11,7 +11,7 @@ filefront = "MPI_"
 inres = 4
 inputvar = 'tos'
 outputvar = 'tas'
-preciproll = 12
+# preciproll = 12
 # user defined ssp
 ssp = str(sys.argv[1])
 
@@ -25,7 +25,7 @@ params = {
     "inres": inres,
     "inputvar":inputvar,
     "outputvar":outputvar,
-    "preciproll":preciproll,
+    # "preciproll":preciproll,
 }
 
 # AllInputData = DataMakar.GriddedMPIAnnualMean(params)

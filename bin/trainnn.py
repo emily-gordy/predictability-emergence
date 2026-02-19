@@ -191,7 +191,7 @@ def main():
     parser.add_argument("--output_var", type=str, default="tas")
     parser.add_argument("--n_train", type=int, default=25)
     parser.add_argument("--n_val", type=int, default=13)
-    parser.add_argument("--test", nargs=2, type=int, default=[38, 49])
+    parser.add_argument("--test", nargs=2, type=int, default=[38, 50])
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--lr", type=float, default=0.05)
     # parser.add_argument("--ridge_pen", type=float, default=1e-6) # is this used?
