@@ -21,18 +21,34 @@ In `nextflow.config` there are a couple of relevant parameters.
 The Nextflow training materials just got updated.
 [Intro course for building pipelines](https://training.nextflow.io/latest/hello_nextflow/) has fresh youtube videos to boot.
 
-## Jen's notes on what's actually happening
+## How to run the current state of things
 
-(`/nesi/nobackup/uoa04506/predictability-emergence`)
+This is documented for the location Jen set up in `nesi99999`, but should be generally transferable to the `/nesi/nobackup/uoa04506/predictability-emergence` directory.
 
-`conda activate /nesi/nobackup/nesi99999/jreeve/predictability-emergence/ml-env`
+### One time setup steps
 
-Initial data prep done in `makedata.py`, sets up several pickled datasets (Gridded ERA5 Annual Mean and Summer and ERA5 Global Mean)
+Jen symlinked the contents of `/nesi/nobackup/uoa04506/predictability-emergence/data` into `/nesi/project/nesi99999/jreeve/predictability-emergence/data` to avoid needing to recreate the input files.
 
-`trainnn.py` gets pickled data using `DataHolder.py`, does a bunch of prep, then weights/trains model and saves both a model file and metrics file.
+The conda environment was created from the `environment.yml` here and for Jen can be activated with `conda activate /nesi/nobackup/nesi99999/jreeve/predictability-emergence/ml-env`.
 
-`evalnn.py` takes all the metrics files for a given latitude (?) and finds the best models.
-It then saves info about the best models in a new pickle dump.
+### Running python scripts
+
+With the conda environment activated the following commands should work to test the underlying Python scripts:
+
+`python bin/trainnn.py --epochs 3 --data_dir /nesi/project/nesi99999/jreeve/predictability-emergence/data`
+
+This will produce `MPI_recordtemp_avgtime_5_allssps_lat_0_lon_0_seed_0.json` and `predictability-emergence/MPI_recordtemp_avgtime_5_allssps_lat_0_lon_0_seed_0.pt`.
+
+If you want to test `evalnn.py` you will need to run this with another few seeds to create files to evaluate.
+Now you can run `python bin/evalnn.py --epochs 3 --data_dir /nesi/project/nesi99999/jreeve/predictability-emergence/data` which will produce an additional `.json` file as well as a `predictions` subdirectory containing two pickle files.
+
+### Running Nextflow
+
+`nextflow run predict-emergence.nf -profile test`
+
+Currently this should spawn 48 local processes of the `train_predict` module.
+As this runs you will see a `.nextflow.log` file as well as a `work` subdirectory.
+After this runs you should see an `outputs` subdirectory containing subdirectories `metrics` and `models` with the outputs from `trainnn.py` for each lat/lon/seed.
 
 ### next steps
 
@@ -89,6 +105,7 @@ I am currently working in the two jupyter notebooks `FirstPredict.ipynb` and `Ob
 
 ### questions for Emily
 
+Jen:
 - what is the 'test' parameter in trainnn.py? it is used in line 262, it was originally `np.arange(38, 50)`
 - in `DataHolder.py`, there are a couple of references to the `MPIInputOutput_SSPlist` object having an attribute `output_lat`/`output_lon` which breaks things
 - related, I'm just somewhat confused what all the classes in DataHolder are doing with their functions
