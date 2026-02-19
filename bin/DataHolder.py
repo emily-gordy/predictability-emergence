@@ -17,347 +17,13 @@ gmthistorical = [1960,1990]
 eravardict = {"tas":"t2m",
               "tos":"sst"}
 
-class MPIOutputOnly:
-    def __init__(self,params):
-        filefront = params["filefront"]
-        ssp = params["ssp"]
-        outputvar = params["outputvar"]
-        self.timerange = params["timerange"]
-        self.datadir = params["data_dir"]
-
-        outputfile = self.datadir + "/" + filefront +"summertime_" + ssp + "_" + outputvar + ".pkl"
-        outfilecheck = glob.glob(outputfile)
-
-        self.summermean = None
-        self.lat = None
-        self.lon = None
-        if len(outfilecheck)==0:
-            print('no output file, run DataMaker to make file')
-        else:
-            with open(outputfile,'rb') as f:
-                alloutput = pickle.load(f)
-                self.summermean = alloutput[0]
-                self.lat = alloutput[1]
-                self.lon = alloutput[2]
-    
-
-
-class MPIInputOutput:
-    def __init__(self,params):
-
-        # self.inputlength = params["inputlength"]
-        # self.outputavgtime = params["outputavgtime"]
-        filefront = params["filefront"]
-        ssp = params["ssp"]
-        inputvar = params["inputvar"]
-        outputvar = params["outputvar"]
-        self.timerange = params["timerange"]
-        self.datadir = params["data_dir"]
-
-        inputfile = self.datadir + "/" + filefront +"annualmean_" + ssp + "_" + inputvar + ".pkl"
-        print(inputfile)
-        infilecheck = glob.glob(inputfile)
-
-        self.input_annualmean = None
-        self.input_lat = None
-        self.input_lon = None
-        if len(infilecheck)==0:
-            print('no input file, run DataMaker to make file')
-        else:
-            with open(inputfile,'rb') as f:
-                allinput = pickle.load(f)
-                self.input_annualmean = allinput[0]
-                self.input_lat = allinput[1]
-                self.input_lon = allinput[2]
-
-        outputfile = self.datadir + "/" + filefront +"summertime_" + ssp + "_" + outputvar + ".pkl"
-        outfilecheck = glob.glob(outputfile)
-
-        self.output_summermean = None
-        self.output_lat = None
-        self.output_lon = None
-        if len(outfilecheck)==0:
-            print('no output file, run DataMaker to make file')
-        else:
-            with open(outputfile,'rb') as f:
-                alloutput = pickle.load(f)
-                self.output_summermean = alloutput[0]
-                self.output_lat = alloutput[1]
-                self.output_lon = alloutput[2]
-
-        gmtfile = self.datadir + "/" + filefront +"annualmeanGMT_" + ssp + "_" + ".pkl"
-        gmtfilecheck = glob.glob(gmtfile)
-
-        if len(gmtfilecheck)==0:
-            print("no gmt file")
-        else:
-            with open(gmtfile,'rb') as f:
-                self.gmt = pickle.load(f)
-    
-    def trainvaltest_classifier(self,trainvaltest,historicalera,inputlength,outputlength,tpercentile,latsel,lonsel):
-
-        self.inputlength = inputlength
-        self.outputavgtime = outputlength
-
-        if latsel<0:
-            self.season = 2
-        else:
-            self.season = 8
-
-        latindsel = np.argmin(np.abs((self.output_lat-latsel)))
-        lonindsel = np.argmin(np.abs((self.output_lon-lonsel)))
-
-        historicalinds = np.asarray(historicalera)-self.timerange[0]
-
-        inputdims = self.input_annualmean.shape[-2:]
-        timevec = np.arange(self.timerange[0], self.timerange[1]+1)
-
-        if self.season == 2: 
-            timevec = timevec[self.inputlength+1:-1*self.outputavgtime+1]
-        
-        elif self.season == 8:
-            timevec = timevec[self.inputlength:-1*self.outputavgtime+1]
-
-        # first work with gridded input data, 
-        # stack it
-        stackedinput = stackmatalongdim1(self.input_annualmean,self.inputlength)
-        # cut it
-        cutinput = stackedinput[:,:-1*(self.outputavgtime)]
-        # control for season
-        if self.season==2:
-            cutinput = cutinput[:,-1]
-        # remove mean from sample dimension
-        inputmean = np.mean(cutinput,axis=2,keepdims=True)
-        anominput = cutinput-inputmean
-        # nan out land
-        landmask = np.isnan(anominput[0,0,0])
-        anominput[:,:,:,landmask] = 0
-
-        # reshape to 4D
-        inputtrainfull = np.reshape(anominput[trainvaltest[0]], (len(trainvaltest[0]) * len(timevec), self.inputlength, inputdims[0], inputdims[1]))
-        inputvalfull = np.reshape(anominput[trainvaltest[1]], (len(trainvaltest[1]) * len(timevec), self.inputlength, inputdims[0], inputdims[1]))
-        inputtestfull = np.reshape(anominput[trainvaltest[2]], (len(trainvaltest[2]) * len(timevec), self.inputlength, inputdims[0], inputdims[1]))
-
-        # now work with GMT data
-        # make each sample anomaly from historical era mean
-        inputgmtmean = np.mean(self.gmt[:,historicalinds[0]:historicalinds[1]],axis=1,keepdims=True)
-        inputgmtanom = self.gmt-inputgmtmean
-        # stack it
-        stackedgmt = stackmatalongdim1(inputgmtanom,self.inputlength)
-        # cut it
-        cutgmt = stackedgmt[:,:-1*(self.outputavgtime)]
-        # control for season
-        if self.season==2:
-            cutgmt = cutgmt[:,-1]
-        # average over sample dimension but keep that dimension
-        avggmt = np.mean(cutgmt,axis=2,keepdims=True)
-        # reshape it to 2D
-        inputtrainGMTfull = np.reshape(avggmt[trainvaltest[0]], (len(trainvaltest[0]) * len(timevec), 1))
-        inputvalGMTfull = np.reshape(avggmt[trainvaltest[1]], (len(trainvaltest[1]) * len(timevec), 1))
-        inputtestGMTfull = np.reshape(avggmt[trainvaltest[2]], (len(trainvaltest[2]) * len(timevec), 1))
-
-        # finally, work with output data
-        # averaging style of Befort et. al 2025
-        summerextreme,one_sigma = onesigma(self.output_summermean[:,:,latindsel,lonindsel], historicalinds, tpercentile)
-        # stack it
-        stackedoutput = stackmatalongdim1(summerextreme,self.outputavgtime)
-        # cut it
-        cutoutput = stackedoutput[:,self.inputlength:]
-        # control for season
-        if self.season==2:
-            cutoutput = cutoutput[:,1:]
-        # number of extremes in a future period
-        nextremes = np.sum(cutoutput,axis=2)
-
-        self.alloutput = nextremes
-
-        # reshape it to 2D
-        outputtrainfull = np.reshape(nextremes[trainvaltest[0]], (len(trainvaltest[0]) * len(timevec), 1))
-        outputvalfull = np.reshape(nextremes[trainvaltest[1]], (len(trainvaltest[1]) * len(timevec), 1))
-        outputtestfull = np.reshape(nextremes[trainvaltest[2]], (len(trainvaltest[2]) * len(timevec), 1))   
-
-        return [inputtrainfull,  inputtrainGMTfull, outputtrainfull,], [inputvalfull, inputvalGMTfull, outputvalfull,], [inputtestfull, inputtestGMTfull,  outputtestfull] 
-
-    def trainvaltest_binaryclassifier(self,trainvaltest,historicalera,inputlength,outputlength,tpercentile,latsel,lonsel):
-        
-        self.inputlength = inputlength
-        self.outputavgtime = outputlength
-
-        if latsel<0:
-            self.season = 2
-        else:
-            self.season = 8
-
-        latindsel = np.argmin(np.abs((self.output_lat-latsel)))
-        lonindsel = np.argmin(np.abs((self.output_lon-lonsel)))
-
-        historicalinds = np.asarray(historicalera)-self.timerange[0]
-
-        inputdims = self.input_annualmean.shape[-2:]
-        timevec = np.arange(self.timerange[0], self.timerange[1]+1)
-
-        endind = -1*self.outputavgtime+1    
-        if endind == 0:
-            endind = None
-
-        if self.season == 2: 
-            timevec = timevec[self.inputlength+1:endind]
-        
-        elif self.season == 8:
-            timevec = timevec[self.inputlength:endind]
-
-        # first work with gridded input data, 
-        # stack it
-        stackedinput = stackmatalongdim1(self.input_annualmean,self.inputlength)
-        # cut it
-        cutinput = stackedinput[:,:-1*(self.outputavgtime)]
-        # control for season
-        if self.season==2:
-            cutinput = cutinput[:,-1]
-        # remove mean from sample dimension
-        inputmean = np.mean(cutinput,axis=2,keepdims=True)
-        anominput = cutinput-inputmean
-        # nan out land
-        landmask = np.isnan(anominput[0,0,0])
-        anominput[:,:,:,landmask] = 0
-
-        # reshape to 4D
-        inputtrainfull = np.reshape(anominput[trainvaltest[0]], (len(trainvaltest[0]) * len(timevec), self.inputlength, inputdims[0], inputdims[1]))
-        inputvalfull = np.reshape(anominput[trainvaltest[1]], (len(trainvaltest[1]) * len(timevec), self.inputlength, inputdims[0], inputdims[1]))
-        inputtestfull = np.reshape(anominput[trainvaltest[2]], (len(trainvaltest[2]) * len(timevec), self.inputlength, inputdims[0], inputdims[1]))
-
-        # now work with GMT data
-        # make each sample anomaly from historical era mean
-        inputgmtmean = np.mean(self.gmt[:,historicalinds[0]:historicalinds[1]],axis=1,keepdims=True)
-        inputgmtanom = self.gmt-inputgmtmean
-        # stack it
-        stackedgmt = stackmatalongdim1(inputgmtanom,self.inputlength)
-        # cut it
-        cutgmt = stackedgmt[:,:-1*(self.outputavgtime)]
-        # control for season
-        if self.season==2:
-            cutgmt = cutgmt[:,-1]
-        # average over sample dimension but keep that dimension
-        avggmt = np.mean(cutgmt,axis=2,keepdims=True)
-        # reshape it to 2D
-        inputtrainGMTfull = np.reshape(avggmt[trainvaltest[0]], (len(trainvaltest[0]) * len(timevec), 1))
-        inputvalGMTfull = np.reshape(avggmt[trainvaltest[1]], (len(trainvaltest[1]) * len(timevec), 1))
-        inputtestGMTfull = np.reshape(avggmt[trainvaltest[2]], (len(trainvaltest[2]) * len(timevec), 1))
-
-        # finally, work with output data
-        # binary classifier of n year event or not
-        # stack it
-        stackedoutput = stackmatalongdim1(self.output_summermean[:,:,latindsel,lonindsel],self.outputavgtime)
-        # cut it
-        cutoutput = stackedoutput[:,self.inputlength:]
-        # control for season
-        if self.season==2:
-            cutoutput = cutoutput[:,1:]
-        # number of extremes in a future period
-        
-        avgsummer = np.mean(cutoutput,axis=2)
-        onesigmasummer,onesigmas = onesigma(avgsummer, historicalinds+int(self.outputavgtime/2), tpercentile)
-        # nextremes = np.sum(cutoutput,axis=2)
-
-        self.truesummer = avgsummer
-        self.alloutput = onesigmasummer
-        self.onesigmas = onesigmas
-
-        # reshape it to 2D
-        outputtrainfull = np.reshape(onesigmasummer[trainvaltest[0]], (len(trainvaltest[0]) * len(timevec), 1))
-        outputvalfull = np.reshape(onesigmasummer[trainvaltest[1]], (len(trainvaltest[1]) * len(timevec), 1))
-        outputtestfull = np.reshape(onesigmasummer[trainvaltest[2]], (len(trainvaltest[2]) * len(timevec), 1))   
-
-        return [inputtrainfull,  inputtrainGMTfull, outputtrainfull,], [inputvalfull, inputvalGMTfull, outputvalfull,], [inputtestfull, inputtestGMTfull,  outputtestfull] 
-
-    def trainvaltest_regression(self,trainvaltest,historicalera,inputlength,outputavgtime,latsel,lonsel):
-
-        self.inputlength = inputlength
-        self.outputavgtime = outputavgtime
-
-        if latsel<0:
-            self.season = 2
-        else:
-            self.season = 8
-
-        latindsel = np.argmin(np.abs((self.output_lat-latsel)))
-        lonindsel = np.argmin(np.abs((self.output_lon-lonsel)))
-
-        historicalinds = np.asarray(historicalera)-self.timerange[0]
-
-        inputdims = self.input_annualmean.shape[-2:]
-        timevec = np.arange(self.timerange[0], self.timerange[1]+1)
-
-        if self.season == 2: 
-            timevec = timevec[self.inputlength+1:-1*self.outputavgtime+1]
-        
-        elif self.season == 8:
-            timevec = timevec[self.inputlength:-1*self.outputavgtime+1]
-
-        # first work with gridded input data, 
-        # stack it
-        stackedinput = stackmatalongdim1(self.input_annualmean,self.inputlength)
-        # cut it
-        cutinput = stackedinput[:,:-1*(self.outputavgtime)]
-        # control for season
-        if self.season==2:
-            cutinput = cutinput[:,-1]
-        # remove mean from sample dimension
-        inputmean = np.mean(cutinput,axis=2,keepdims=True)
-        anominput = cutinput-inputmean
-        # nan out land
-        landmask = np.isnan(anominput[0,0,0])
-        anominput[:,:,:,landmask] = 0
-
-        # reshape to 4D
-        inputtrainfull = np.reshape(anominput[trainvaltest[0]], (len(trainvaltest[0]) * len(timevec), self.inputlength, inputdims[0], inputdims[1]))
-        inputvalfull = np.reshape(anominput[trainvaltest[1]], (len(trainvaltest[1]) * len(timevec), self.inputlength, inputdims[0], inputdims[1]))
-        inputtestfull = np.reshape(anominput[trainvaltest[2]], (len(trainvaltest[2]) * len(timevec), self.inputlength, inputdims[0], inputdims[1]))
-
-        # now work with GMT data
-        # make each sample anomaly from historical era mean
-        inputgmtmean = np.mean(self.gmt[:,historicalinds[0]:historicalinds[1]],axis=1,keepdims=True)
-        inputgmtanom = self.gmt-inputgmtmean
-        # stack it
-        stackedgmt = stackmatalongdim1(inputgmtanom,self.inputlength)
-        # cut it
-        cutgmt = stackedgmt[:,:-1*(self.outputavgtime)]
-        # control for season
-        if self.season==2:
-            cutgmt = cutgmt[:,-1]
-        # average over sample dimension but keep that dimension
-        avggmt = np.mean(cutgmt,axis=2,keepdims=True)
-        # reshape it to 2D
-        inputtrainGMTfull = np.reshape(avggmt[trainvaltest[0]], (len(trainvaltest[0]) * len(timevec), 1))
-        inputvalGMTfull = np.reshape(avggmt[trainvaltest[1]], (len(trainvaltest[1]) * len(timevec), 1))
-        inputtestGMTfull = np.reshape(avggmt[trainvaltest[2]], (len(trainvaltest[2]) * len(timevec), 1))
-
-        # finally, work with output data
-        # subtract summer histroical era temperature to make anomaly timeseries
-        outputmean = np.mean(self.output_summermean[:,:,latindsel,lonindsel],axis=1,keepdims=True)
-        outputanom = self.output_summermean[:,:,latindsel,lonindsel]-outputmean
-        # stack it
-        stackedoutput = stackmatalongdim1(outputanom,self.outputavgtime)
-        # cut it
-        cutoutput = stackedoutput[:,self.inputlength:]
-        # control for season
-        if self.season==2:
-            cutoutput = cutoutput[:,1:]
-
-        # average to make future means
-        avgoutput = np.mean(cutoutput,axis=2)
-        self.alloutput = avgoutput
-
-        # reshape it to 2D
-        outputtrainfull = np.reshape(avgoutput[trainvaltest[0]], (len(trainvaltest[0]) * len(timevec), 1))
-        outputvalfull = np.reshape(avgoutput[trainvaltest[1]], (len(trainvaltest[1]) * len(timevec), 1))
-        outputtestfull = np.reshape(avgoutput[trainvaltest[2]], (len(trainvaltest[2]) * len(timevec), 1))
-
-        return [inputtrainfull,  inputtrainGMTfull, outputtrainfull,], [inputvalfull, inputvalGMTfull, outputvalfull,], [inputtestfull, inputtestGMTfull,  outputtestfull] 
-
 
 class MPIInputOutput_SSPlist:
+    """Class for reading and transforming the data used in the ML models"""
     def __init__(self,params,ssplist):
+        """Use the experiment parameter set to grab the data generated in makedata.py 
+        and assign to the class as allinput, allGMT, and alloutput. This is still in the
+        dimensions [ssp][member,time,lat,lon]"""
 
         filefront = params["filefront"]
         inputvar = params["inputvar"]
@@ -424,204 +90,6 @@ class MPIInputOutput_SSPlist:
         self.alloutput = alloutput
         self.allGMT = allGMT
 
-    def trainvaltest_binaryclassifier(self,trainvaltest,experimentera,baselineera,inputlength,outputlength,tpercentile,latsel,lonsel):
-
-        self.inputlength = inputlength
-        self.outputavgtime = outputlength
-
-        allsummer = []
-
-        if latsel<0:
-            self.season = 2
-        else:
-            self.season = 8
-
-        latindsel = np.argmin(np.abs((self.output_lat-latsel)))
-        lonindsel = np.argmin(np.abs((self.output_lon-lonsel)))
-
-        # gmthistorical = [1960,1990]
-        gmthistoricalinds = [gmthistorical[0]-self.timerange[0],gmthistorical[1]-self.timerange[0]]
-
-        print('baseline for gmt is '+ str(gmthistoricalinds[0]) + ' ' + str(gmthistoricalinds[1]))
-
-        # historicalinds = np.asarray(historicalera)-self.timerange[0]
-
-        # timevecfull = np.arange(self.timerange[0], self.timerange[1]+1)
-
-        inputdims = self.allinput[0].shape[-2:]
-
-        historicalinds = [experimentera[0]-self.timerange[0],endhist-self.timerange[0]+self.outputavgtime]
-        print('experiment era in the historical is '+ str(historicalinds[0]) + ' ' + str(historicalinds[1]))
-
-        input_annualmean = self.allinput[0] # grab the first ssp, doesn't really matter which
-        input_hist = input_annualmean[:,historicalinds[0]:historicalinds[1]]
-
-        # first work with gridded input data, 
-        # stack it
-        stackedinput = stackmatalongdim1(input_hist,self.inputlength)
-        # cut it
-        cutinput = stackedinput[:,:-1*(self.outputavgtime)]
-        # control for season
-        if self.season==2:
-            cutinput = cutinput[:,-1]
-        # remove mean from sample dimension
-        inputmean = np.mean(cutinput,axis=2,keepdims=True)
-        anominput = cutinput-inputmean
-        # nan out land
-        landmask = np.isnan(anominput[0,0,0])
-        anominput[:,:,:,landmask] = 0
-
-        inputtrainfull = np.reshape(anominput[trainvaltest[0]], (len(trainvaltest[0]) * anominput.shape[1], self.inputlength, inputdims[0], inputdims[1]))
-        inputvalfull = np.reshape(anominput[trainvaltest[1]], (len(trainvaltest[1]) * anominput.shape[1], self.inputlength, inputdims[0], inputdims[1]))
-        inputtestfull = np.reshape(anominput[trainvaltest[2]], (len(trainvaltest[2]) * anominput.shape[1], self.inputlength, inputdims[0], inputdims[1]))
-
-        gmt = self.allGMT[0]
-        gmt_hist = gmt[:,historicalinds[0]:historicalinds[1]]
-        # now work with GMT data
-        # make each sample anomaly from historical era mean
-        inputgmtmean = np.mean(gmt[:,historicalinds[0]:historicalinds[1]],axis=1,keepdims=True)
-        
-        # print('checking size of inputgmtmean')
-        # print(str(inputgmtmean.shape))
-
-        inputgmtanom = gmt_hist-inputgmtmean
-        # stack it
-        stackedgmt = stackmatalongdim1(inputgmtanom,self.inputlength)
-        # cut it
-        cutgmt = stackedgmt[:,:-1*(self.outputavgtime)]
-        # control for season
-        if self.season==2:
-            cutgmt = cutgmt[:,-1]
-        # average over sample dimension but keep that dimension
-        avggmt = np.mean(cutgmt,axis=2,keepdims=True)
-        # reshape it to 2D
-        inputtrainGMTfull = np.reshape(avggmt[trainvaltest[0]], (len(trainvaltest[0]) * avggmt.shape[1], 1))
-        inputvalGMTfull = np.reshape(avggmt[trainvaltest[1]], (len(trainvaltest[1]) * avggmt.shape[1], 1))
-        inputtestGMTfull = np.reshape(avggmt[trainvaltest[2]], (len(trainvaltest[2]) * avggmt.shape[1], 1))
-
-        baselineindices = [baselineera[0]-experimentera[0],baselineera[1]-experimentera[0]]
-        output_summermean = self.alloutput[0]
-        output_summermean_hist = output_summermean[:,historicalinds[0]:historicalinds[1]]
-        # finally, work with output data
-        # binary classifier of n year event or not
-        # stack it
-        stackedoutput = stackmatalongdim1(output_summermean_hist[:,:,latindsel,lonindsel],self.outputavgtime)
-        # cut it
-        cutoutput = stackedoutput[:,self.inputlength:]
-        # control for season
-        if self.season==2:
-            cutoutput = cutoutput[:,1:]
-        # number of extremes in a future period
-        
-        avgsummer = np.mean(cutoutput,axis=2)
-        onesigmasummer,onesigmas = onesigma(avgsummer, baselineindices, tpercentile)
-
-        allsummer.append(avgsummer)
-
-        # print('checking size of onesigmas')
-        # print(str(onesigmas.shape))
-
-        # reshape it to 2D
-        outputtrainfull = np.reshape(onesigmasummer[trainvaltest[0]], (len(trainvaltest[0]) * onesigmasummer.shape[1], 1))
-        outputvalfull = np.reshape(onesigmasummer[trainvaltest[1]], (len(trainvaltest[1]) * onesigmasummer.shape[1], 1))
-        outputtestfull = np.reshape(onesigmasummer[trainvaltest[2]], (len(trainvaltest[2]) * onesigmasummer.shape[1], 1))   
-
-        endind = -1*self.outputavgtime+1    
-        if endind == 0:
-            endind = None
-
-        for issp, ssp in enumerate(self.ssplist):
-
-            # print('working on ' + ssp)
-            
-            MPIfuture = [endhist-self.timerange[0]-self.inputlength,endind]
-
-            input_annualmean = self.allinput[issp]
-            input_future = input_annualmean[:,MPIfuture[0]:MPIfuture[1]]
-            # first work with gridded input data, 
-            # stack it
-            stackedinput = stackmatalongdim1(input_future,self.inputlength)
-            # cut it
-            cutinput = stackedinput[:,:-1*(self.outputavgtime)]
-            # control for season
-            if self.season==2:
-                cutinput = cutinput[:,-1]
-            # remove mean from sample dimension
-            inputmean = np.mean(cutinput,axis=2,keepdims=True)
-            anominput = cutinput-inputmean
-            # nan out land
-            landmask = np.isnan(anominput[0,0,0])
-            anominput[:,:,:,landmask] = 0
-
-            # reshape to 4D
-            anomreshape_train = np.reshape(anominput[trainvaltest[0]], (len(trainvaltest[0]) * anominput.shape[1], self.inputlength, inputdims[0], inputdims[1]))
-            anomreshape_val = np.reshape(anominput[trainvaltest[1]], (len(trainvaltest[1]) * anominput.shape[1], self.inputlength, inputdims[0], inputdims[1]))
-            anomreshape_test = np.reshape(anominput[trainvaltest[2]], (len(trainvaltest[2]) * anominput.shape[1], self.inputlength, inputdims[0], inputdims[1]))
-
-            inputtrainfull = np.append(inputtrainfull,anomreshape_train,axis=0)
-            inputvalfull = np.append(inputvalfull,anomreshape_val,axis=0)
-            inputtestfull = np.append(inputtestfull,anomreshape_test,axis=0)
-
-            gmt = self.allGMT[issp]
-            gmt_future = gmt[:,MPIfuture[0]:MPIfuture[1]]
-            # now work with GMT data
-
-            inputgmtanom = gmt_future-inputgmtmean #use gmt mean from historical (already calculated)
-            # stack it
-            stackedgmt = stackmatalongdim1(inputgmtanom,self.inputlength)
-            # cut it
-            cutgmt = stackedgmt[:,:-1*(self.outputavgtime)]
-            # control for season
-            if self.season==2:
-                cutgmt = cutgmt[:,-1]
-            # average over sample dimension but keep that dimension
-            avggmt = np.mean(cutgmt,axis=2,keepdims=True)
-
-            # reshape it to 2D
-            avggmtreshape_train = np.reshape(avggmt[trainvaltest[0]], (len(trainvaltest[0]) * avggmt.shape[1], 1))
-            avggmtreshape_val = np.reshape(avggmt[trainvaltest[1]], (len(trainvaltest[1]) * avggmt.shape[1], 1))
-            avggmtreshape_test = np.reshape(avggmt[trainvaltest[2]], (len(trainvaltest[2]) * avggmt.shape[1], 1))
-
-            inputtrainGMTfull = np.append(inputtrainGMTfull,avggmtreshape_train,axis=0)
-            inputvalGMTfull = np.append(inputvalGMTfull,avggmtreshape_val,axis=0)
-            inputtestGMTfull = np.append(inputtestGMTfull,avggmtreshape_test,axis=0)
-
-            output_summermean = self.alloutput[issp]
-            output_summer_hist = output_summermean[:,MPIfuture[0]:MPIfuture[1]]
-            # finally, work with output data
-            # binary classifier of n year event or not
-            # stack it
-            stackedoutput = stackmatalongdim1(output_summer_hist[:,:,latindsel,lonindsel],self.outputavgtime)
-            # cut it
-            cutoutput = stackedoutput[:,self.inputlength:]
-            # control for season
-            if self.season==2:
-                cutoutput = cutoutput[:,1:]
-            # number of extremes in a future period
-            
-            avgsummer = np.mean(cutoutput,axis=2)
-            # onesigmasummer,onesigmas = onesigma(avgsummer, historicalinds+int(self.outputavgtime/2), tpercentile)
-            # nextremes = np.sum(cutoutput,axis=2)
-            onesigmasummer = 1.*(avgsummer>onesigmas[:,np.newaxis])
-
-            allsummer.append(avgsummer)
-
-            # reshape it to 2D
-
-            summerreshape_train = np.reshape(onesigmasummer[trainvaltest[0]], (len(trainvaltest[0]) * onesigmasummer.shape[1], 1))
-            summerreshape_val = np.reshape(onesigmasummer[trainvaltest[1]], (len(trainvaltest[1]) * onesigmasummer.shape[1], 1))
-            summerreshape_test = np.reshape(onesigmasummer[trainvaltest[2]], (len(trainvaltest[2]) * onesigmasummer.shape[1], 1))
-
-            outputtrainfull = np.append(outputtrainfull,summerreshape_train,axis=0)
-            outputvalfull = np.append(outputvalfull,summerreshape_val,axis=0)
-            outputtestfull = np.append(outputtestfull,summerreshape_test,axis=0)
-
-        self.truesummer = allsummer
-        self.onesigmas = onesigmas
-
-        return [inputtrainfull,  inputtrainGMTfull, outputtrainfull,], [inputvalfull, inputvalGMTfull, outputvalfull,], [inputtestfull, inputtestGMTfull,  outputtestfull] 
-
-
     def calculate_nulls(self,trainvaltest):
         
         onesigmas = self.onesigmas
@@ -654,6 +122,19 @@ class MPIInputOutput_SSPlist:
 
     def trainvaltest_recordmax(self,trainvaltest,experimentera,baselineera,inputlength,outputlength,latsel,lonsel):
 
+        """
+        slice the data to the experiment era and then process the inputs and outputs into ML ready
+        format (as described by the comments). Offset input/output so we are predicting the future then
+        split the inputs/outputs into training/validation/test sets
+        trainvaltest : indices corresponding to members to put in training/validation/testing 
+                        e.g. [np.arange(25),np.arange(25,38),np.arange(38,50)]
+        experimentera : years to grab from the ensemble members e.g. [1960,2080]
+        baselineera : years to use as baseline for a record summer e.g. [1920,1950]
+        inputlength : number of years of SST to use for inout e.g. 10
+        outputlength : how many years into the future we look for an extreme
+        latsel,lonsel : latitude and longitude coordinate of the gridpoint of interest
+        """
+
         self.inputlength = inputlength
         self.outputavgtime = outputlength
 
@@ -669,19 +150,13 @@ class MPIInputOutput_SSPlist:
 
         gmthistoricalinds = [gmthistorical[0]-self.timerange[0],gmthistorical[1]-self.timerange[0]]
 
-        print('baseline for gmt is '+ str(gmthistoricalinds[0]) + ' ' + str(gmthistoricalinds[1]))
-
-        # historicalinds = np.asarray(historicalera)-self.timerange[0]
-
-        # timevecfull = np.arange(self.timerange[0], self.timerange[1]+1)
-
         inputdims = self.allinput[0].shape[-2:]
 
         historicalinds = [experimentera[0]-self.timerange[0],endhist-self.timerange[0]+self.outputavgtime]
-        print('experiment era in the historical is '+ str(historicalinds[0]) + ' ' + str(historicalinds[1]))
 
         input_annualmean = self.allinput[0] # grab the first ssp, doesn't really matter which
         input_hist = input_annualmean[:,historicalinds[0]:historicalinds[1]]
+        
         # first work with gridded input data, 
         # stack it
         stackedinput = stackmatalongdim1(input_hist,self.inputlength)
@@ -697,6 +172,7 @@ class MPIInputOutput_SSPlist:
         landmask = np.isnan(anominput[0,0,0])
         anominput[:,:,:,landmask] = 0
 
+        # reshape to 2D and split to train/val/test
         inputtrainfull = np.reshape(anominput[trainvaltest[0]], (len(trainvaltest[0]) * anominput.shape[1], self.inputlength, inputdims[0], inputdims[1]))
         inputvalfull = np.reshape(anominput[trainvaltest[1]], (len(trainvaltest[1]) * anominput.shape[1], self.inputlength, inputdims[0], inputdims[1]))
         inputtestfull = np.reshape(anominput[trainvaltest[2]], (len(trainvaltest[2]) * anominput.shape[1], self.inputlength, inputdims[0], inputdims[1]))
@@ -706,31 +182,27 @@ class MPIInputOutput_SSPlist:
         # now work with GMT data
         # make each sample anomaly from historical era mean
         inputgmtmean = np.mean(gmt[:,gmthistoricalinds[0]:gmthistoricalinds[1]],axis=1,keepdims=True)
-        
-        # print('checking size of inputgmtmean')
-        # print(str(inputgmtmean.shape))
-
         inputgmtanom = gmt_hist-inputgmtmean
+        
         # stack it
         stackedgmt = stackmatalongdim1(inputgmtanom,self.inputlength)
         # cut it
         cutgmt = stackedgmt[:,:-1*(self.outputavgtime)]
-        # control for season
+        # control for season in southern hemisphere
         if self.season==2:
             cutgmt = cutgmt[:,:-1]
         # average over sample dimension but keep that dimension
         avggmt = np.mean(cutgmt,axis=2,keepdims=True)
 
         self.lenhisttime = avggmt.shape[1]
-        # reshape it to 2D
+        # reshape it to 2D and split to train/val/test
         inputtrainGMTfull = np.reshape(avggmt[trainvaltest[0]], (len(trainvaltest[0]) * avggmt.shape[1], 1))
         inputvalGMTfull = np.reshape(avggmt[trainvaltest[1]], (len(trainvaltest[1]) * avggmt.shape[1], 1))
         inputtestGMTfull = np.reshape(avggmt[trainvaltest[2]], (len(trainvaltest[2]) * avggmt.shape[1], 1))
 
-        # output_summermean = self.alloutput[0]
+        # finally, work with output data which is a binary classifier of record summer occurs or not
+        
         # calculate record summers
-
-        # exprange = [experiment_era[0]-timerange[0],experiment_era[1]-timerange[0]]
         baselineindices = [baselineera[0]-self.timerange[0],baselineera[1]-self.timerange[0]]
         print('baseline for temp records is '+ str(baselineindices[0]) + ' ' + str(baselineindices[1]))
 
@@ -749,9 +221,6 @@ class MPIInputOutput_SSPlist:
 
         self.recordtemps = recordtemps
 
-        # finally, work with output data
-        # binary classifier of record summer occurs or not
-
         output_recordtemps_hist = recordtemps[0,:,historicalinds[0]:historicalinds[1]]
         # stack it
         stackedoutput = stackmatalongdim1(output_recordtemps_hist,self.outputavgtime)
@@ -767,11 +236,12 @@ class MPIInputOutput_SSPlist:
         outputrecordsummer = 1*(nevents>0) # any number >0 is a yes
         allsummer.append(nevents)
 
-        # reshape it to 2D
+        # reshape it to 2D and split into train/val/test
         outputtrainfull = np.reshape(outputrecordsummer[trainvaltest[0]], (len(trainvaltest[0]) * outputrecordsummer.shape[1], 1))
         outputvalfull = np.reshape(outputrecordsummer[trainvaltest[1]], (len(trainvaltest[1]) * outputrecordsummer.shape[1], 1))
         outputtestfull = np.reshape(outputrecordsummer[trainvaltest[2]], (len(trainvaltest[2]) * outputrecordsummer.shape[1], 1))   
-        endind = -1*self.outputavgtime+1    
+        
+        endind = -1*self.outputavgtime+1 # stop code from busting if using 1 year lead
         if endind == 0:
             endind = None
 
@@ -868,6 +338,10 @@ class MPIInputOutput_SSPlist:
 
 
     def trainvaltest_recordmax_outputonly(self,trainvaltest,experimentera,baselineera,inputlength,outputlength,latsel,lonsel):
+        """
+        As above but it is handy to have this to generate the output only without generating the input too
+        """
+
 
         self.inputlength = inputlength
         self.outputavgtime = outputlength
@@ -979,7 +453,11 @@ class MPIInputOutput_SSPlist:
 
 
     def trainvaltest_recordmax_ssps(self,trainvaltest,experimentera,inputlength,outputlength,latsel):
-        
+
+        """
+        As above but specifically to label which ssp (or hist) the data came from. Also handy to have lying around
+        """
+
         sspweight = [-0.2,-0.1,0,0.1,0.2]
 
         self.inputlength = inputlength
@@ -1063,6 +541,20 @@ class MPIInputOutput_SSPlist:
 
 
     def trainvaltest_historicalseasonalthreshold(self,trainvaltest,experimentera,baselineera,inputlength,outputlength,tpercentile,latsel,lonsel):
+
+        """
+        slice the data to the experiment era and then process the inputs and outputs into ML ready
+        format (as described by the comments). Offset input/output so we are predicting the future then
+        split the inputs/outputs into training/validation/test sets
+        trainvaltest : indices corresponding to members to put in training/validation/testing 
+                        e.g. [np.arange(25),np.arange(25,38),np.arange(38,50)]
+        experimentera : years to grab from the ensemble members e.g. [1960,2080]
+        baselineera : years to use as baseline for an extreme e.g. [1920,1950]
+        inputlength : number of years of SST to use for inout e.g. 10
+        outputlength : how many years into the future we look for an extreme
+        tpercentile : what percentile of historical extreme are we going to try to predict
+        latsel,lonsel : latitude and longitude coordinate of the gridpoint of interest
+        """
 
         self.inputlength = inputlength
         self.outputavgtime = outputlength
@@ -1263,208 +755,6 @@ class MPIInputOutput_SSPlist:
 
         return [inputtrainfull,  inputtrainGMTfull, outputtrainfull,], [inputvalfull, inputvalGMTfull, outputvalfull,], [inputtestfull, inputtestGMTfull,  outputtestfull] 
 
-
-    def trainvaltest_summertimetempjump(self,trainvaltest,experimentera,baselineera,inputlength,outputlength,tpercentile,latsel,lonsel):
-
-        self.inputlength = inputlength
-        self.outputavgtime = outputlength
-
-        allsummer = []
-
-        if latsel<0:
-            self.season = 2
-        else:
-            self.season = 8
-
-        latindsel = np.argmin(np.abs((self.output_lat-latsel)))
-        lonindsel = np.argmin(np.abs((self.output_lon-lonsel)))
-
-        # gmthistorical = [1960,1990]
-        gmthistoricalinds = [gmthistorical[0]-self.timerange[0],gmthistorical[1]-self.timerange[0]]
-
-        print('baseline for gmt is '+ str(gmthistoricalinds[0]) + ' ' + str(gmthistoricalinds[1]))
-
-        # historicalinds = np.asarray(historicalera)-self.timerange[0]
-
-        # timevecfull = np.arange(self.timerange[0], self.timerange[1]+1)
-
-        inputdims = self.allinput[0].shape[-2:]
-
-        historicalinds = [experimentera[0]-self.timerange[0],endhist-self.timerange[0]+self.outputavgtime]
-        print('experiment era in the historical is '+ str(historicalinds[0]) + ' ' + str(historicalinds[1]))
-
-        input_annualmean = self.allinput[0] # grab the first ssp, doesn't really matter which
-        input_hist = input_annualmean[:,historicalinds[0]:historicalinds[1]]
-
-        # first work with gridded input data, 
-        # stack it
-        stackedinput = stackmatalongdim1(input_hist,self.inputlength)
-        # cut it
-        cutinput = stackedinput[:,:-1*(self.outputavgtime)]
-        # control for season
-        if self.season==2:
-            cutinput = cutinput[:,-1]
-        # remove mean from sample dimension
-        inputmean = np.mean(cutinput,axis=2,keepdims=True)
-        anominput = cutinput-inputmean
-        # nan out land
-        landmask = np.isnan(anominput[0,0,0])
-        anominput[:,:,:,landmask] = 0
-
-        inputtrainfull = np.reshape(anominput[trainvaltest[0]], (len(trainvaltest[0]) * anominput.shape[1], self.inputlength, inputdims[0], inputdims[1]))
-        inputvalfull = np.reshape(anominput[trainvaltest[1]], (len(trainvaltest[1]) * anominput.shape[1], self.inputlength, inputdims[0], inputdims[1]))
-        inputtestfull = np.reshape(anominput[trainvaltest[2]], (len(trainvaltest[2]) * anominput.shape[1], self.inputlength, inputdims[0], inputdims[1]))
-
-        gmt = self.allGMT[0]
-        gmt_hist = gmt[:,historicalinds[0]:historicalinds[1]]
-        # now work with GMT data
-        # make each sample anomaly from historical era mean
-        inputgmtmean = np.mean(gmt[:,historicalinds[0]:historicalinds[1]],axis=1,keepdims=True)
-        
-        # print('checking size of inputgmtmean')
-        # print(str(inputgmtmean.shape))
-
-        inputgmtanom = gmt_hist-inputgmtmean
-        # stack it
-        stackedgmt = stackmatalongdim1(inputgmtanom,self.inputlength)
-        # cut it
-        cutgmt = stackedgmt[:,:-1*(self.outputavgtime)]
-        # control for season
-        if self.season==2:
-            cutgmt = cutgmt[:,-1]
-        # average over sample dimension but keep that dimension
-        avggmt = np.mean(cutgmt,axis=2,keepdims=True)
-        # reshape it to 2D
-        inputtrainGMTfull = np.reshape(avggmt[trainvaltest[0]], (len(trainvaltest[0]) * avggmt.shape[1], 1))
-        inputvalGMTfull = np.reshape(avggmt[trainvaltest[1]], (len(trainvaltest[1]) * avggmt.shape[1], 1))
-        inputtestGMTfull = np.reshape(avggmt[trainvaltest[2]], (len(trainvaltest[2]) * avggmt.shape[1], 1))
-
-        baselineindices = [baselineera[0]-experimentera[0],baselineera[1]-experimentera[0]]
-        output_summermean = self.alloutput[0]
-        output_summermean_hist = output_summermean[:,historicalinds[0]:historicalinds[1]]
-
-        # finally, work with output data
-        # binary classifier of n year event or not
-        # stack it
-        stackedinput = stackmatalongdim1(output_summermean_hist[:,:,latindsel,lonindsel],self.inputlength)
-        stackedoutput = stackmatalongdim1(output_summermean_hist[:,:,latindsel,lonindsel],self.outputavgtime)
-        # cut it
-        cutoutput = stackedoutput[:,self.inputlength:]
-        cutinput = stackedinput[:,:-1*self.outputavgtime]
-        # control for season
-        if self.season==2:
-            cutoutput = cutoutput[:,1:]
-        # number of extremes in a future period
-        cutdiff = np.mean(cutoutput,axis=2)-np.mean(cutinput,axis=2)
-        thresholdjump,thresholds = onesigma(cutdiff,baselineindices,tpercentile)
-        # onesigmasummer,onesigmas = onesigma(avgsummer, baselineindices, tpercentile)
-
-        allsummer.append(cutdiff)
-
-        # print('checking size of onesigmas')
-        # print(str(onesigmas.shape))
-
-        # reshape it to 2D
-        outputtrainfull = np.reshape(thresholdjump[trainvaltest[0]], (len(trainvaltest[0]) * thresholdjump.shape[1], 1))
-        outputvalfull = np.reshape(thresholdjump[trainvaltest[1]], (len(trainvaltest[1]) * thresholdjump.shape[1], 1))
-        outputtestfull = np.reshape(thresholdjump[trainvaltest[2]], (len(trainvaltest[2]) * thresholdjump.shape[1], 1))   
-
-        endind = -1*self.outputavgtime+1    
-        if endind == 0:
-            endind = None
-
-        for issp, ssp in enumerate(self.ssplist):
-
-            # print('working on ' + ssp)
-            
-            MPIfuture = [endhist-self.timerange[0]-self.inputlength,endind]
-
-            input_annualmean = self.allinput[issp]
-            input_future = input_annualmean[:,MPIfuture[0]:MPIfuture[1]]
-            # first work with gridded input data, 
-            # stack it
-            stackedinput = stackmatalongdim1(input_future,self.inputlength)
-            # cut it
-            cutinput = stackedinput[:,:-1*(self.outputavgtime)]
-            # control for season
-            if self.season==2:
-                cutinput = cutinput[:,-1]
-            # remove mean from sample dimension
-            inputmean = np.mean(cutinput,axis=2,keepdims=True)
-            anominput = cutinput-inputmean
-            # nan out land
-            landmask = np.isnan(anominput[0,0,0])
-            anominput[:,:,:,landmask] = 0
-
-            # reshape to 4D
-            anomreshape_train = np.reshape(anominput[trainvaltest[0]], (len(trainvaltest[0]) * anominput.shape[1], self.inputlength, inputdims[0], inputdims[1]))
-            anomreshape_val = np.reshape(anominput[trainvaltest[1]], (len(trainvaltest[1]) * anominput.shape[1], self.inputlength, inputdims[0], inputdims[1]))
-            anomreshape_test = np.reshape(anominput[trainvaltest[2]], (len(trainvaltest[2]) * anominput.shape[1], self.inputlength, inputdims[0], inputdims[1]))
-
-            inputtrainfull = np.append(inputtrainfull,anomreshape_train,axis=0)
-            inputvalfull = np.append(inputvalfull,anomreshape_val,axis=0)
-            inputtestfull = np.append(inputtestfull,anomreshape_test,axis=0)
-
-            gmt = self.allGMT[issp]
-            gmt_future = gmt[:,MPIfuture[0]:MPIfuture[1]]
-            # now work with GMT data
-
-            inputgmtanom = gmt_future-inputgmtmean #use gmt mean from historical (already calculated)
-            # stack it
-            stackedgmt = stackmatalongdim1(inputgmtanom,self.inputlength)
-            # cut it
-            cutgmt = stackedgmt[:,:-1*(self.outputavgtime)]
-            # control for season
-            if self.season==2:
-                cutgmt = cutgmt[:,-1]
-            # average over sample dimension but keep that dimension
-            avggmt = np.mean(cutgmt,axis=2,keepdims=True)
-
-            # reshape it to 2D
-            avggmtreshape_train = np.reshape(avggmt[trainvaltest[0]], (len(trainvaltest[0]) * avggmt.shape[1], 1))
-            avggmtreshape_val = np.reshape(avggmt[trainvaltest[1]], (len(trainvaltest[1]) * avggmt.shape[1], 1))
-            avggmtreshape_test = np.reshape(avggmt[trainvaltest[2]], (len(trainvaltest[2]) * avggmt.shape[1], 1))
-
-            inputtrainGMTfull = np.append(inputtrainGMTfull,avggmtreshape_train,axis=0)
-            inputvalGMTfull = np.append(inputvalGMTfull,avggmtreshape_val,axis=0)
-            inputtestGMTfull = np.append(inputtestGMTfull,avggmtreshape_test,axis=0)
-
-            output_summermean = self.alloutput[issp]
-            output_summer_fut = output_summermean[:,MPIfuture[0]:MPIfuture[1]]
-            # finally, work with output data
-            # binary classifier of n year event or not
-            # stack it
-            stackedinput = stackmatalongdim1(output_summer_fut[:,:,latindsel,lonindsel],self.inputlength)
-            stackedoutput = stackmatalongdim1(output_summer_fut[:,:,latindsel,lonindsel],self.outputavgtime)
-            # cut it
-            cutoutput = stackedoutput[:,self.inputlength:]
-            cutinput = stackedinput[:,:-1*self.outputavgtime]
-            # control for season
-            if self.season==2:
-                cutoutput = cutoutput[:,1:]
-            # number of extremes in a future period
-            cutdiff = np.mean(cutoutput,axis=2)-np.mean(cutinput,axis=2)
-            # onesigmasummer,onesigmas = onesigma(avgsummer, historicalinds+int(self.outputavgtime/2), tpercentile)
-            # nextremes = np.sum(cutoutput,axis=2)
-
-            allsummer.append(cutdiff)
-
-            thresholdjump = cutdiff>thresholds[:,np.newaxis]
-
-            # reshape it to 2D
-
-            summerreshape_train = np.reshape(thresholdjump[trainvaltest[0]], (len(trainvaltest[0]) * thresholdjump.shape[1], 1))
-            summerreshape_val = np.reshape(thresholdjump[trainvaltest[1]], (len(trainvaltest[1]) * thresholdjump.shape[1], 1))
-            summerreshape_test = np.reshape(thresholdjump[trainvaltest[2]], (len(trainvaltest[2]) * thresholdjump.shape[1], 1))
-
-            outputtrainfull = np.append(outputtrainfull,summerreshape_train,axis=0)
-            outputvalfull = np.append(outputvalfull,summerreshape_val,axis=0)
-            outputtestfull = np.append(outputtestfull,summerreshape_test,axis=0)
-
-        self.truesummer = allsummer
-        self.thresholds = thresholds
-
-        return [inputtrainfull,  inputtrainGMTfull, outputtrainfull,], [inputvalfull, inputvalGMTfull, outputvalfull,], [inputtestfull, inputtestGMTfull,  outputtestfull] 
 
 class ERA5InputOutput:
     def __init__(self,params):
