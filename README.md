@@ -90,5 +90,8 @@ I am currently working in the two jupyter notebooks `FirstPredict.ipynb` and `Ob
 ### questions for Emily
 
 - what is the 'test' parameter in trainnn.py? it is used in line 262, it was originally `np.arange(38, 50)`
+  - 'test' is a list of ensemble members to be used in the testing set. The data I am using is a 50 member ensemble of simulations so I split the data into training/validation by randomly grouping the first 38 members into 25 (n_train) members for training and 13 (n_val) members for validation (line 265). The final 12 members (i.e. members 38-50) are always used in testing. So, the test parameter does not change.
 - in `DataHolder.py`, there are a couple of references to the `MPIInputOutput_SSPlist` object having an attribute `output_lat`/`output_lon` which breaks things
+  - I don't know why this is breaking things, it should just be reading in a vector of lat/lon coordinates. I am going to dig into this
 - related, I'm just somewhat confused what all the classes in DataHolder are doing with their functions
+  - the DataHolder in general is a mess because I wrote the functions iteratively every time I updated the how I was constructing the input/output data. This is an artefact of me being not good at coding but I will go through and clean that up (in the spirit of cleaning everything else up)
