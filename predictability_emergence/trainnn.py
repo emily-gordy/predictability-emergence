@@ -62,7 +62,9 @@ def val_loop(dataloader, model, loss_fn, optimizer, scheduler, device):
             all_losses.append(batch_losses.item())  # Convert tensor to scalar and store
 
     # Compute the overall loss (sum of individual losses divided by the number of samples)
+    print(f'**** batch_losses = {batch_losses}')
     valid_loss = batch_losses.mean() # should this be all_losses?
+    print(f'*** valid_loss = {valid_loss}')
 
     logger.info("validation loss: %s", valid_loss)
 

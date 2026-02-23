@@ -17,7 +17,7 @@ process train_predict {
     ssp_list = params.ssps.join(' ')
 
     """
-    trainnn.py --lat ${lat} --seed ${seed} --lon ${lon} \
+    trainnn --lat ${lat} --seed ${seed} --lon ${lon} \
         --outputavgtime ${params.outputavgtime} \
         --ssps ${ssp_list} \
         --experiment_era ${experiment_era} \

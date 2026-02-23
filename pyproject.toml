@@ -9,7 +9,7 @@ description = "Tools for predictability & emergence modeling"
 readme = "README.md"
 requires-python = ">=3.9"
 license = "MIT"  # SPDX license string
-authors = [{ name = "Emily Gordy" }]
+authors = [{ name = "Emily Gordon" }]
 keywords = ["predictability", "emergence", "ml", "science"]
 classifiers = [
   "Programming Language :: Python :: 3",

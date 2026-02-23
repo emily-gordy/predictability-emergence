@@ -10,7 +10,7 @@ process evalnn {
 
     script:
     """
-    evalnn.py --lat ${lat} \
+    evalnn --lat ${lat} \
         --n_best ${params.n_best}
         --outputavgtime ${params.outputavgtime} \
         --ssps ${params.ssps} \
