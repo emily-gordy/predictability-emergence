@@ -8,20 +8,23 @@ workflow MODEL_TRAINING {
     main:
     train_predict(input_ch)
 
-    scores = train_predict.out.metrics
+    models = train_predict.out.model
+            .map {
+                lat, lon, seed, file ->
+                [[lat:lat, lon:lon, seed:seed], file]
+            }
+    metrics = train_predict.out.metrics
                 .map {
                     lat, lon, seed, file ->
-                    [[lat, lon, seed], file.splitJson()[4]]
+                    [[lat:lat, lon:lon, seed:seed], file.splitJson()[4]['value'], file] // pull the score out of the metrics file
                 }
-                .map {
-                    meta, json ->
-                    [meta + json]
-                }
-                // .splitJson()
-                // .map { v -> v.score }
-                .view()
-
+                .join(models, by: [0], remainder: true) // add the path for the model file
+                .toSortedList { a, b -> b[1] <=> a[1] } // sort by the score
+                .flatMap()
+                .take( params.n_best ) // get the best #
+                // .view()
     // add evalnn step
+    evalnn(metrics)
 
     emit: // Specify the outputs you want published into the output directory
         model = train_predict.out.model
