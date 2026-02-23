@@ -1,7 +1,7 @@
-#%%
+#!/usr/bin/env python3
 
-import DataHolder
-import buildmodel
+from predictability_emergence import DataHolder
+from predictability_emergence import buildmodel
 
 import importlib as imp
 #import matplotlib.pyplot as plt

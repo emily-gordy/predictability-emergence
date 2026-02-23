@@ -10,7 +10,6 @@ dependencies:
   - dask
   - netCDF4
   - bottleneck
-  - scikit-learn
   - pytorch::pytorch
   - pytorch::torchvision
   - pytorch::torchaudio
