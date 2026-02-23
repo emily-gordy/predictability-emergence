@@ -47,8 +47,6 @@ def val_loop(dataloader, model, loss_fn, optimizer, scheduler, device):
     # Unnecessary in this situation but added for best practices
     model.eval()
 
-    all_pred = []
-    all_true = []
     all_losses = []
 
     with torch.no_grad():
@@ -59,19 +57,12 @@ def val_loop(dataloader, model, loss_fn, optimizer, scheduler, device):
             # Forward pass
             pred = model(x1, x2)
 
-            all_pred.extend(pred.detach().cpu().numpy())
-            all_true.extend(y.detach().cpu().numpy())
-
             # Calculate individual losses
-            batch_losses = loss_fn(
-                pred, y
-            )  # This returns a tensor of losses for each item in the batch
+            batch_losses = loss_fn(pred, y)  # This returns a tensor of losses for each item in the batch
             all_losses.append(batch_losses.item())  # Convert tensor to scalar and store
+
     # Compute the overall loss (sum of individual losses divided by the number of samples)
     valid_loss = batch_losses.mean() # should this be all_losses?
-
-    all_pred = np.asarray(all_pred)[:, 1]
-    all_true = np.asarray(all_true)
 
     logger.info("validation loss: %s", valid_loss)
 
