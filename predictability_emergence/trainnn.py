@@ -19,7 +19,6 @@ logger = logging.getLogger("trainnn.py")
 
 # training/validation functions
 
-
 def train_loop(dataloader, cnn, loss_fn, optimizer, device, batch_size):
 
     size = len(dataloader.dataset)
@@ -246,7 +245,7 @@ def main():
 
     if torch.cuda.is_available():
         device = "cuda"
-    elif torch.backends.mps.is_available() & torch.backends.mps.is_built():
+    elif torch.backends.mps.is_available() and torch.backends.mps.is_built():
         device = "mps"
     else:
         device = "cpu"
