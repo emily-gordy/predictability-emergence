@@ -5,5 +5,5 @@ def run(cmd):
     return subprocess.run(tokens)
 
 def test_help():
-    result = run("trainn --help")
+    result = run("trainnn --help")
 
