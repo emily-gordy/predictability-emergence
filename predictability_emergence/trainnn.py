@@ -1,19 +1,14 @@
 #!/usr/bin/env python3
 
-import datetime
 from predictability_emergence import DataHolder
 from predictability_emergence import buildmodel
 
-import importlib as imp
-
-# import matplotlib.pyplot as plt
 import numpy as np
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, TensorDataset
 import torch.optim as optim
 import torch.optim.lr_scheduler as lr_scheduler
-import torch.nn.functional as F
 import time
 
 import json
