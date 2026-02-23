@@ -10,5 +10,5 @@ def test_help():
 
 def test_small(data_dir):
     if data_dir is not None:
-        result = run(f"trainnn --data-dir {data_dir} --epochs 3 --ssps 126 245")
+        result = run(f"trainnn --data_dir {data_dir} --epochs 3 --ssps 126 245")
 
