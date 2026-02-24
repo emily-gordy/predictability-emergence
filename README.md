@@ -35,7 +35,7 @@ work.
 
 You can run manual tests with
 ```
-pytest tests
+pytest tests --data_dir=<path/to/data>
 ```
 
 ## Nextflow getting started resources
