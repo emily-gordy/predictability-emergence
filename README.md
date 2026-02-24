@@ -1,6 +1,9 @@
 ## Nextflow pipeline
 
-`nextflow run predict-emergence.nf -profile test,local`
+```
+nextflow clean -f
+nextflow run predict-emergence.nf -profile test,local
+```
 
 ### some settings for Mahuika
 
@@ -15,6 +18,25 @@
 In `nextflow.config` there are a couple of relevant parameters.
 `conda.enabled` just tells Nextflow to use conda environments.
 `conda.cachedir` lets you set a cache dir (currently set to my nobackup dir, but change as you wish).
+
+## Installing the scripts
+
+```
+pip install -e .
+```
+Check that the commands 
+```
+trainnn -h
+evalnn -h 
+```
+work.
+
+## Running tests
+
+You can run manual tests with
+```
+pytest tests
+```
 
 ## Nextflow getting started resources
 
@@ -33,6 +55,7 @@ Initial data prep done in `makedata.py`, sets up several pickled datasets (Gridd
 
 `evalnn.py` takes all the metrics files for a given latitude (?) and finds the best models.
 It then saves info about the best models in a new pickle dump.
+
 
 ### next steps
 
