@@ -13,9 +13,9 @@
 #SBATCH --time=8:00:00
 #SBATCH -p serc
 
-module load python/3.6.1
+module load python/3.12.1
 module load math
-module load cuda/10.1
+module load cuda/12.6.1
 module load py-numpy/1.26.3_py312
 module load py-pytorch/2.4.1_py312
 module load py-scipy/1.12.0_py312
