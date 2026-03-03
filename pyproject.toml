@@ -34,3 +34,4 @@ packages = ["predictability_emergence"]
 [project.scripts]
 evalnn = "predictability_emergence.evalnn:main"
 trainnn = "predictability_emergence.trainnn:main"
+basepred = "predictability_emergence.basepred:main"
