@@ -17,7 +17,10 @@ def main():
     parser = argparse.ArgumentParser(prog="basepred")
     # just in case parameters
     parser.add_argument("--outputavgtime", type=int, default=5)
-    parser.add_argument("--ssps", nargs="+", default=["126", "245", "370", "585"])
+    parser.add_argument("--ssps", nargs="+",
+                        default=["126", "245", "370", "585"],
+                        choices=["126", "245", "370", "585"], 
+                        help="SSP scenarios")
     parser.add_argument("--experiment_era", nargs=2, type=int, default=[1950, 2100])
     parser.add_argument("--baseline_era", nargs=2, type=int, default=[1900, 1950])
     parser.add_argument("--input_length", type=int, default=10)
