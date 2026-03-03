@@ -81,31 +81,31 @@ def main():
     # landmask = np.isnan(AllData.alloutput[0][0,0])
     
     dummylon = 0
-    lat = 0
 
     trainval = np.random.choice(n_train+n_val,n_train+n_val,replace=False)
 
     trainvaltest = [trainval[:n_train],trainval[n_train:n_train+n_val],test]
 
-    _, _, alltest = AllData.trainvaltest_recordmax(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,dummylon)
+    for _, lat in enumerate(AllData.output_lat):
 
-    inputtest, inputtestGMT, _ = DataHolder.tensortime_onehot(alltest,nclasses=2)
+        _, _, alltest = AllData.trainvaltest_recordmax(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,dummylon)
 
-    alltesttrue = np.zeros((len(AllData.output_lon),len(inputtestGMT)))
-    testtruefile = "predictions/"+model_file_front+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_truetesting.csv"
+        inputtest, inputtestGMT, _ = DataHolder.tensortime_onehot(alltest,nclasses=2)
 
-    # add lat loop
-    # can we vectorize this?
+        alltesttrue = np.zeros((len(AllData.output_lon),len(inputtestGMT)))
+        testtruefile = "predictions/"+model_file_front+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_truetesting.csv"
 
-    for ilon,lon in enumerate(AllData.output_lon):
-            _, _, outputtestall = AllData.trainvaltest_recordmax_outputonly(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,lon)
+        # add lat loop
+        # can we vectorize this?
 
-            inputtest,inputtestGMT,outputtest = DataHolder.tensortime_onehot_inputoutput(alltest,outputtestall,nclasses=2)
-            testtrueclass = np.argmax(outputtest.numpy(),axis=1)
-            alltesttrue[ilon] = testtrueclass
+        for ilon,lon in enumerate(AllData.output_lon):
+                _, _, outputtestall = AllData.trainvaltest_recordmax_outputonly(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,lon)
 
-    # switch to writing this to csv
-    np.savetxt(testtruefile, alltesttrue, delimiter = ',')
+                inputtest,inputtestGMT,outputtest = DataHolder.tensortime_onehot_inputoutput(alltest,outputtestall,nclasses=2)
+                testtrueclass = np.argmax(outputtest.numpy(),axis=1)
+                alltesttrue[ilon] = testtrueclass
+
+        np.savetxt(testtruefile, alltesttrue, delimiter = ',')
 
 if __name__ == "__main__":
     main()
