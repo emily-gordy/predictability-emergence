@@ -23,10 +23,6 @@ import argparse
 import logging
 #%% 
 
-imp.reload(DataHolder)
-
-
-
 def save_metrics(accuracy, class_imbalance, json_file):
     result = {
         "test_accuracy": accuracy.tolist(),
@@ -137,13 +133,13 @@ def main():
     n_train = args.n_train
     n_val = args.n_val
     test = np.array(args.test)
-    batch_size = args.batch_size
-    lr = args.lr
+    # batch_size = args.batch_size
+    # lr = args.lr
     # ridge_pen = args.ridge_pen
-    lr_patience = args.lr_patience
-    early_stopping_patience = args.early_stopping_patience
-    epochs = args.epochs
-    momentum = args.momentum
+    # lr_patience = args.lr_patience
+    # early_stopping_patience = args.early_stopping_patience
+    # epochs = args.epochs
+    # momentum = args.momentum
     data_dir = args.data_dir
 
     # make parameter dictionary to be passed to DataHolder
@@ -181,9 +177,9 @@ def main():
 
     trainvaltest = [trainval[:n_train],trainval[n_train:n_train+n_val],test]
 
-    _, _, alltest = AllData.trainvaltest_recordmax(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,dummylon)
+    _, _, alltest = AllData.trainvaltest_recordmax_withrecordmax(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,dummylon)
 
-    inputtest, inputtestGMT, _ = DataHolder.tensortime_onehot(alltest,nclasses=2)
+    inputtest, inputtestGMT, _ = DataHolder.tensortime_onehot_withrecordmax(alltest,nclasses=2)
 
     alltestpred = np.zeros((len(AllData.output_lon),n_best,len(inputtestGMT)))
     alltesttrue = np.zeros((len(AllData.output_lon),len(inputtestGMT)))

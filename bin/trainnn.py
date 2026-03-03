@@ -5,6 +5,8 @@ import DataHolder
 import buildmodel
 
 import importlib as imp
+import glob
+import pickle
 
 # import matplotlib.pyplot as plt
 import numpy as np
@@ -24,6 +26,16 @@ logger = logging.getLogger("trainnn.py")
 
 # training/validation functions
 
+seedlist = [62469869,
+            71856281,
+            47621498,
+            10431957,
+            50561320,
+            72166634,
+            18469465,
+            92895735,
+            57693846,
+            22284750]
 
 def train_loop(dataloader, cnn, loss_fn, optimizer, device, batch_size):
 
@@ -173,8 +185,8 @@ def main():
     # setting up parser
     parser = argparse.ArgumentParser(prog="trainnn")
     # main parameters
-    parser.add_argument("--lat", type=int, default=0)
-    parser.add_argument("--lon", type=int, default=0)
+    # parser.add_argument("--lat", type=int, default=0)
+    # parser.add_argument("--lon", type=int, default=0)
     parser.add_argument("--seed", type=int, default=0)
     # just in case parameters
     parser.add_argument("--outputavgtime", type=int, default=5)
@@ -203,8 +215,8 @@ def main():
 
     args = parser.parse_args()
 
-    lat = args.lat
-    lon = args.lon
+    # lat = args.lat
+    # lon = args.lon
     iseed = args.seed
     outputavgtime = args.outputavgtime
     ssp_list = args.ssps
@@ -246,6 +258,9 @@ def main():
 
     AllData = DataHolder.MPIInputOutput_SSPlist(params, ssp_list)
 
+    with open('../landmask10x10.pkl','rb') as f:
+        landmask1 = pickle.load(f)
+
     if torch.cuda.is_available():
         device = "cuda"
     elif torch.backends.mps.is_available() & torch.backends.mps.is_built():
@@ -255,7 +270,7 @@ def main():
     logger.info("Using device: %s", device)
 
     # split data
-    seed = iseed
+    seed = seedlist[iseed]
 
     torch.manual_seed(seed)
     np.random.seed(seed)
@@ -263,141 +278,162 @@ def main():
     train_val = np.random.choice(n_train + n_val, n_train + n_val, replace=False)
 
     train_valtest = [train_val[:n_train], train_val[n_train : n_train + n_val], test]
-    alltrain, allval, _ = AllData.trainvaltest_recordmax(
-        train_valtest, experiment_era, baseline_era, input_length, outputavgtime, lat, lon
-    )
 
-    inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_onehot(
-        alltrain, nclasses=2
-    )
-    inputval, inputvalGMT, outputval = DataHolder.tensortime_onehot(allval, nclasses=2)
+    latvec = np.arange(-90,90,10)
+    lonvec = np.arange(0,360,10)
 
-    traindataset = TensorDataset(inputtrain, inputtrainGMT, outputtrain)
-    train_loader = DataLoader(traindataset, batch_size=batch_size, shuffle=True)
+    for ilat,lat in enumerate(latvec):
+        for ilon,lon in enumerate(lonvec):
 
-    valdataset = TensorDataset(inputval, inputvalGMT, outputval)
-    val_loader = DataLoader(
-        valdataset, batch_size=inputval.size(0), shuffle=False
-    )  # all val in one batch maybe bad idea
+            landout = landmask1[ilat,ilon]
 
-    fileout = (
-        model_file_front
-        + "avgtime_"
-        + str(outputavgtime)
-        + "_allssps_lat_"
-        + str(lat)
-        + "_lon_"
-        + str(lon)
-        + "_seed_"
-        + str(seed)
-        + ".pt"
-    )
-    metricsout = (
-        model_file_front
-        + "avgtime_"
-        + str(outputavgtime)
-        + "_allssps_lat_"
-        + str(lat)
-        + "_lon_"
-        + str(lon)
-        + "_seed_"
-        + str(seed)
-        + ".json"
-    )
+            if landout == True:
 
-    # lightly weight the class imbalance
-    classimbalance = np.mean(alltrain[-1].squeeze())
-    if classimbalance > 0:  # cant train where it never happens
-        weights_corrected = lightclassweighting(classimbalance, device)
+                fileout = (
+                    "../models/"
+                    + model_file_front
+                    + "avgtime_"
+                    + str(outputavgtime)
+                    + "_allssps_lat_"
+                    + str(lat)
+                    + "_lon_"
+                    + str(lon)
+                    + "_seed_"
+                    + str(seed)
+                    + ".pt"
+                )
+                metricsout = (
+                    "../metrics/"
+                    + model_file_front
+                    + "avgtime_"
+                    + str(outputavgtime)
+                    + "_allssps_lat_"
+                    + str(lat)
+                    + "_lon_"
+                    + str(lon)
+                    + "_seed_"
+                    + str(seed)
+                    + ".json"
+                )
 
-        print(weights_corrected)
+                metricfilecheck = glob.glob(metricsout)
+                if len(metricfilecheck)==0:
 
-        loss_fn = nn.CrossEntropyLoss(weight=weights_corrected)
+                    alltrain, allval, _ = AllData.trainvaltest_recordmax_withrecordmax(
+                        train_valtest, experiment_era, baseline_era, input_length, outputavgtime, lat, lon
+                    )
 
-        valimbalance = np.mean(allval[-1].squeeze())
-        valimbalance = [(1 - valimbalance), valimbalance]
-        logger.info(
-            "val imbalance is %s:%s", valimbalance[0], valimbalance[1]
-        )
+                    inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_onehot_withrecordmax(
+                        alltrain, nclasses=2
+                    )
+                    inputval, inputvalGMT, outputval = DataHolder.tensortime_onehot_withrecordmax(allval, nclasses=2)
 
-        # train the model
+                    traindataset = TensorDataset(inputtrain, inputtrainGMT, outputtrain)
+                    train_loader = DataLoader(traindataset, batch_size=batch_size, shuffle=True)
 
-        cnn = buildmodel.CNNclassifier(
-            inputtrain, inputtrainGMT, len(weights_corrected)
-        ).to(device)
+                    valdataset = TensorDataset(inputval, inputvalGMT, outputval)
+                    val_loader = DataLoader(
+                        valdataset, batch_size=inputval.size(0), shuffle=False
+                    )  # all val in one batch maybe bad idea
 
-        optimizer = optim.SGD(
-            cnn.parameters(),
-            lr=lr,
-            momentum=momentum,
-        )
-        scheduler = lr_scheduler.ReduceLROnPlateau(
-            optimizer,
-            threshold=1e-4,
-            factor=0.1,
-            patience=lr_patience,
-            cooldown=lr_patience,
-            min_lr=1e-5,
-        )
+                    # lightly weight the class imbalance
+                    classimbalance = np.mean(alltrain[-1].squeeze())
+                    if classimbalance > 0:  # cant train where it never happens
+                        weights_corrected = lightclassweighting(classimbalance, device)
 
-        loss = []
+                        print(weights_corrected)
 
-        best_val_loss = np.inf
-        epochs_no_improve = 0
-        logger.info("Starting training loop for seed %d", seed)
-        for t in range(epochs):
-            logger.info("\nEpoch %d\n-------------------------------", t + 1)
-            time1 = time.time()
+                        loss_fn = nn.CrossEntropyLoss(weight=weights_corrected)
 
-            train_loop(train_loader, cnn, loss_fn, optimizer, device, batch_size)
-            valid_loss = val_loop(
-                val_loader, cnn, loss_fn, optimizer, scheduler, device
-            )
+                        valimbalance = np.mean(allval[-1].squeeze())
+                        valimbalance = [(1 - valimbalance), valimbalance]
+                        logger.info(
+                            "val imbalance is %s:%s", valimbalance[0], valimbalance[1]
+                        )
 
-            loss.append(valid_loss)
-            time2 = time.time()
-            logger.info("%s seconds per epoch", time2 - time1)
-            best_val_loss, earlystopping, epochs_no_improve = model_checkpoint(
-                cnn,
-                valid_loss,
-                best_val_loss,
-                epochs_no_improve,
-                fileout,
-                early_stopping_patience,
-            )
-            if earlystopping == 1:
-                logger.info("Early stopping after %d epochs.", t + 1)
-                break
+                        # train the model
 
-        cnn.load_state_dict(torch.load(fileout, weights_only=True))
+                        cnn = buildmodel.CNNclassifier(
+                            inputtrain, inputtrainGMT, len(weights_corrected)
+                        ).to(device)
 
-        with torch.no_grad():
-            cnn.eval()
-            valpred = cnn(inputval.to(device), inputvalGMT.to(device))
+                        optimizer = optim.SGD(
+                            cnn.parameters(),
+                            lr=lr,
+                            momentum=momentum,
+                        )
+                        scheduler = lr_scheduler.ReduceLROnPlateau(
+                            optimizer,
+                            threshold=1e-4,
+                            factor=0.1,
+                            patience=lr_patience,
+                            cooldown=lr_patience,
+                            min_lr=1e-5,
+                        )
 
-        valpred = valpred.cpu().numpy()
+                        loss = []
 
-        valpredclass = np.argmax(valpred, axis=1)
-        valtrueclass = np.argmax(outputval.numpy(), axis=1)
+                        best_val_loss = np.inf
+                        epochs_no_improve = 0
+                        logger.info("Starting training loop for seed %d", seed)
+                        for t in range(epochs):
+                            logger.info("\nEpoch %d\n-------------------------------", t + 1)
+                            time1 = time.time()
 
-        valacc = np.mean(valpredclass == valtrueclass)
-        logging.debug("valacc is type %s", type(valacc))
-        logger.info(
-            "Best validation accuracy: %f on a bg acc of %f:%f",
-            valacc,
-            valimbalance[0],
-            valimbalance[1],
-        )
+                            train_loop(train_loader, cnn, loss_fn, optimizer, device, batch_size)
+                            valid_loss = val_loop(
+                                val_loader, cnn, loss_fn, optimizer, scheduler, device
+                            )
 
-        val_randomchance = np.max(valimbalance)
+                            loss.append(valid_loss)
+                            time2 = time.time()
+                            logger.info("%s seconds per epoch", time2 - time1)
+                            best_val_loss, earlystopping, epochs_no_improve = model_checkpoint(
+                                cnn,
+                                valid_loss,
+                                best_val_loss,
+                                epochs_no_improve,
+                                fileout,
+                                early_stopping_patience,
+                            )
+                            if earlystopping == 1:
+                                logger.info("Early stopping after %d epochs.", t + 1)
+                                break
 
-        save_metrics(
-            seed,
-            best_val_loss.cpu().numpy().item(),
-            valacc,
-            val_randomchance,
-            metricsout,
-        )
+                        cnn.load_state_dict(torch.load(fileout, weights_only=True))
+
+                        with torch.no_grad():
+                            cnn.eval()
+                            valpred = cnn(inputval.to(device), inputvalGMT.to(device))
+
+                        valpred = valpred.cpu().numpy()
+
+                        valpredclass = np.argmax(valpred, axis=1)
+                        valtrueclass = np.argmax(outputval.numpy(), axis=1)
+
+                        valacc = np.mean(valpredclass == valtrueclass)
+                        logging.debug("valacc is type %s", type(valacc))
+                        logger.info(
+                            "Best validation accuracy: %f on a bg acc of %f:%f",
+                            valacc,
+                            valimbalance[0],
+                            valimbalance[1],
+                        )
+
+                        val_randomchance = np.max(valimbalance)
+
+                        save_metrics(
+                            seed,
+                            best_val_loss.cpu().numpy().item(),
+                            valacc,
+                            val_randomchance,
+                            metricsout,
+                        )
+                    
+                else:
+                    print('file exist')
+            else:
+                print('lat '+ str(lat) + ' lon ' + str(lon) + ' over ocean')
 
 
 # %%
