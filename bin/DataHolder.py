@@ -1233,6 +1233,21 @@ def tensortime_onehot_inputoutput(inputx2,outputdata,nclasses=6):
 
     return inputdata_t, inputgmt_t, outputdata_t
 
+def tensortime_onehot_inputoutput_withrecordmax(inputx2,outputdata,nclasses=6):
+
+    inputdata = inputx2[0]
+    inputgmt = inputx2[1]
+    inputrecordmax = inputx2[2]
+    inputvectors = np.concatenate((inputgmt,inputrecordmax),axis=-1)
+
+    inputdata_t = torch.tensor(inputdata,dtype=torch.float32)
+    inputvectors_t = torch.tensor(inputvectors,dtype=torch.float32)
+
+    outputdata = torch.tensor(outputdata.squeeze(),dtype=torch.int64)
+    outputonehotencoded = one_hot(outputdata, num_classes=nclasses) 
+    outputdata_t = torch.tensor(outputonehotencoded,dtype=torch.float32)
+
+    return inputdata_t, inputvectors_t, outputdata_t
 
 def tensortime_classindex(listofmatrices,nclasses=6):
 

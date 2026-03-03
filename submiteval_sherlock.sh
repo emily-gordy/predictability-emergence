@@ -1,12 +1,11 @@
 #!/bin/bash
 
-#SBATCH --job-name=train_all_%a
-#SBATCH --error=/scratch/users/egordon4/job_output/train_all_%a.err
-#SBATCH --output=/scratch/users/egordon4/job_output/train_all_%a.out
+#SBATCH --job-name=eval_lat_%a
+#SBATCH --error=/scratch/users/egordon4/job_output/eval_lat_%a.err
+#SBATCH --output=/scratch/users/egordon4/job_output/eval_lat_%a.out
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
-#SBATCH --array=0-9
-#SBATCH --gres=gpu:1
+#SBATCH --array=0-16
 #SBATCH --mem=40GB
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --mail-user=emily.gordon@auckland.ac.nz
@@ -17,11 +16,16 @@ module purge
 
 module load python/3.12.1
 module load math
-module load cuda/12.6.1
 module load py-numpy/1.26.3_py312
 module load py-pytorch/2.4.1_py312
 module load py-scipy/1.12.0_py312
 
 cd /scratch/users/egordon4/predictability-emergence/bin/
 
-python3 -u trainnn.py --seed=$SLURM_ARRAY_TASK_ID
+# Define array of latitudes
+LATS=(-70 -60 -50 -40 -30 -20 -10 0 10 20 30 40 50 60 70 80)
+
+# Get the latitude for this task
+LAT=${LATS[$SLURM_ARRAY_TASK_ID]}
+
+python3 -u evalnn.py --lat=LAT
