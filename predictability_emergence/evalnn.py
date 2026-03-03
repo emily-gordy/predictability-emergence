@@ -89,10 +89,9 @@ def main():
     # logging.getLogger().addHandler(console)
 
     # setting up parser
-    parser = argparse.ArgumentParser(prog="trainnn")
+    parser = argparse.ArgumentParser(prog="evalnn")
     # main parameters
     parser.add_argument("--lat", type=int, default=0)
-    parser.add_argument("--n_best", type=int, default=3)
     # just in case parameters
     parser.add_argument("--outputavgtime", type=int, default=5)
     parser.add_argument("--ssps", nargs="+", default=["126", "245", "370", "585"])
@@ -110,18 +109,11 @@ def main():
     parser.add_argument("--n_val", type=int, default=13)
     parser.add_argument("--test", nargs=2, type=int, default=[38, 49])
     parser.add_argument("--batch_size", type=int, default=128)
-    parser.add_argument("--lr", type=float, default=0.05)
-    # parser.add_argument("--ridge_pen", type=float, default=1e-6) # is this used?
-    parser.add_argument("--lr_patience", type=int, default=7)
-    parser.add_argument("--early_stopping_patience", type=int, default=20)
-    parser.add_argument("--epochs", type=int, default=200)
-    parser.add_argument("--momentum", type=float, default=0.5)
     parser.add_argument("--data_dir", type=str, default="../data/")
 
     args = parser.parse_args()
 
     lat = args.lat
-    n_best = args.n_best
     outputavgtime = args.outputavgtime
     ssp_list = args.ssps
     experiment_era = args.experiment_era
@@ -138,12 +130,6 @@ def main():
     n_val = args.n_val
     test = np.array(args.test)
     batch_size = args.batch_size
-    lr = args.lr
-    # ridge_pen = args.ridge_pen
-    lr_patience = args.lr_patience
-    early_stopping_patience = args.early_stopping_patience
-    epochs = args.epochs
-    momentum = args.momentum
     data_dir = args.data_dir
 
     # make parameter dictionary to be passed to DataHolder
@@ -205,27 +191,21 @@ def main():
             _, _, outputtestall = AllData.trainvaltest_recordmax_outputonly(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,lon)
 
             inputtest,inputtestGMT,outputtest = DataHolder.tensortime_onehot_inputoutput(alltest,outputtestall,nclasses=2)
-            testtrueclass = np.argmax(outputtest.numpy(),axis=1)
-            alltesttrue[ilon] = testtrueclass
 
             testimbalance = np.mean(outputtestall)
             testimbalance = [(1-testimbalance),testimbalance]
             nullimbalance = np.max(np.asarray(testimbalance))
             logging.info("Test imbalance is %s:%s", testimbalance[0], testimbalance[1])
 
-            for iseed,seed in enumerate(bestseeds):
-                # load the model
+            cnn = buildmodel.CNNclassifier(inputtest, inputtestGMT, 2).to('cpu')
+            cnn.load_state_dict(torch.load(model_file,map_location=torch.device('cpu'), weights_only=False))
+            cnn.to(device)
 
-                loadfile = model_file_front+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_lon"+str(lon)+"_seed"+str(seed)+".pt"
-                cnn = buildmodel.CNNclassifier(inputtest, inputtestGMT, 2).to('cpu')
-                cnn.load_state_dict(torch.load(loadfile,map_location=torch.device('cpu'), weights_only=False))
-                cnn.to(device)
+            with torch.no_grad():
+                cnn.eval()
+                testpred = cnn(inputtest.to(device), inputtestGMT.to(device)).cpu().numpy()
 
-                with torch.no_grad():
-                    cnn.eval()
-                    testpred = cnn(inputtest.to(device), inputtestGMT.to(device)).cpu().numpy()
-
-                alltestpred[ilon,iseed,] = testpred[:,1]
+            alltestpred[ilon,iseed,] = testpred[:,1]
 
             predmean = np.mean(alltestpred[ilon],axis=0) # confidence in positive class
             predclass = np.round(predmean) # prediction class
@@ -237,9 +217,6 @@ def main():
 
     with open(testpredfile,'wb') as f:
         pickle.dump(alltestpred,f)
-
-    with open(testtruefile,'wb') as f:
-        pickle.dump(alltesttrue,f)
 
 # %%
 if __name__ == "__main__":
