@@ -32,6 +32,7 @@ def main():
     parser.add_argument("--n_val", type=int, default=13)
     parser.add_argument("--test", nargs=2, type=int, default=[38, 49])
     parser.add_argument("--data_dir", type=str, default="../data")
+    parser.add_argument("--output_dir", type=str, default="predictions/")
 
     args = parser.parse_args()
 
@@ -51,6 +52,7 @@ def main():
     n_val = args.n_val
     test = np.array(args.test)
     data_dir = args.data_dir
+    output_dir = args.output_dir
 
     # make parameter dictionary to be passed to DataHolder
     params = {
@@ -93,7 +95,7 @@ def main():
         inputtest, inputtestGMT, _ = DataHolder.tensortime_onehot(alltest,nclasses=2)
 
         alltesttrue = np.zeros((len(AllData.output_lon),len(inputtestGMT)))
-        testtruefile = "predictions/"+model_file_front+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_truetesting.csv"
+        testtruefile = output_dir+model_file_front+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_truetesting.csv"
 
         # add lat loop
         # can we vectorize this?
