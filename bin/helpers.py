@@ -65,3 +65,9 @@ def get_best_files(filelist,n_best=3):
     bestseeds = allseeds[bestseedinds]
 
     return bestseeds
+
+def brierscore(preds,truths):
+
+    bs = np.mean((preds-truths)**2)
+
+    return bs
