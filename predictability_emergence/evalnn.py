@@ -185,8 +185,8 @@ def main():
 
     _, inputtestGMT, _ = DataHolder.tensortime_onehot(alltest,nclasses=2)
 
-    alltestpred = np.zeros((len(AllData.output_lon),n_best,len(inputtestGMT)))
-    alltesttrue = np.zeros((len(AllData.output_lon),len(inputtestGMT)))
+    alltestpred = np.zeros((len(AllData.output_lon),n_best,len(inputtestGMT)))+np.nan
+    alltesttrue = np.zeros((len(AllData.output_lon),len(inputtestGMT)))+np.nan
     testpredfile = "predictions/"+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_testing.pkl"
     testtruefile = "predictions/"+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_truetesting.pkl"
 
