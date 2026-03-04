@@ -1,11 +1,42 @@
-## Nextflow pipeline
+# Nextflow pipeline for predictability-emergence
 
+
+
+## Commands to execute the pipeline
+
+```
+nextflow run predict-emergence.nf -profile test,local -with-dag test_workflow.png
+```
+This will launch a quick version of the workflow for testing locally. 
+
+Should the workflow be interrupted for any reason, you can restart it with
+```
+nextflow run predict-emergence.nf -profile test,local -resume
+```
+
+To submit Mahuika using the SLURM scheduler
+```
+nextflow run predict-emergence.nf -profile test,mahuika -resume
+
+To clean up the results
 ```
 nextflow clean -f
-nextflow run predict-emergence.nf -profile test,local
 ```
 
-### some settings for Mahuika
+## What is something goes wrong?
+
+It is possible to inspect the output of some scripts to determine the cause of a potential failure. When executing the workflow you'll see 
+something like `[c9/f4eb84]`. 
+```
+ls work/c9/f4eb84[TAB]
+```
+will show the produced files. In this directory, look for
+```
+ls work/c9/f4eb847fb16541735061ac92e99669/.command.*
+```
+to find stderr and other output messages.
+
+## Running on Mahuika
 
 `module purge && module load Nextflow/25.10.2`
 
@@ -31,7 +62,7 @@ evalnn -h
 ```
 work.
 
-## Running tests
+## Running tests outside of nextflow
 
 You can run manual tests with
 ```
@@ -61,8 +92,6 @@ It then saves info about the best models in a new pickle dump.
 
 refactoring:
 
-- add testing!
-  - easy to set up test for eval step, just give some fake metrics
 - currently doing a pickle dump from evalnn, what is the actual desired output?
 - comment on or change file naming scheme to work for floats for lat/lon inputs
 - add scoring to trainnn.py and remove from evalnn.py
