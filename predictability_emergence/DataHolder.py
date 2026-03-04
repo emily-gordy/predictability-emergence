@@ -451,6 +451,265 @@ class MPIInputOutput_SSPlist:
 
         return outputtrainfull, outputvalfull, outputtestfull
 
+    def trainvaltest_recordmax_withrecordmax(self,trainvaltest,experimentera,baselineera,inputlength,outputlength,latsel,lonsel):
+
+        """
+        slice the data to the experiment era and then process the inputs and outputs into ML ready
+        format (as described by the comments). Offset input/output so we are predicting the future then
+        split the inputs/outputs into training/validation/test sets
+        trainvaltest : indices corresponding to members to put in training/validation/testing 
+                        e.g. [np.arange(25),np.arange(25,38),np.arange(38,50)]
+        experimentera : years to grab from the ensemble members e.g. [1960,2080]
+        baselineera : years to use as baseline for a record summer e.g. [1920,1950]
+        inputlength : number of years of SST to use for inout e.g. 10
+        outputlength : how many years into the future we look for an extreme
+        latsel,lonsel : latitude and longitude coordinate of the gridpoint of interest
+        """
+
+        self.inputlength = inputlength
+        self.outputavgtime = outputlength
+
+        allsummer = []
+
+        if latsel<0:
+            self.season = 2
+        else:
+            self.season = 8
+
+        latindsel = np.argmin(np.abs((self.output_lat-latsel)))
+        lonindsel = np.argmin(np.abs((self.output_lon-lonsel)))
+
+        gmthistoricalinds = [gmthistorical[0]-self.timerange[0],gmthistorical[1]-self.timerange[0]]
+
+        inputdims = self.allinput[0].shape[-2:]
+
+        historicalinds = [experimentera[0]-self.timerange[0],endhist-self.timerange[0]+self.outputavgtime]
+
+        input_annualmean = self.allinput[0] # grab the first ssp, doesn't really matter which
+        input_hist = input_annualmean[:,historicalinds[0]:historicalinds[1]]
+        
+        # first work with gridded input data, 
+        # stack it
+        stackedinput = stackmatalongdim1(input_hist,self.inputlength)
+        # cut it
+        cutinput = stackedinput[:,:-1*(self.outputavgtime)]
+        # control for season
+        if self.season==2:
+            cutinput = cutinput[:,:-1]
+        # remove mean from sample dimension
+        inputmean = np.mean(cutinput,axis=2,keepdims=True)
+        anominput = cutinput-inputmean
+        # nan out land
+        landmask = np.isnan(anominput[0,0,0])
+        anominput[:,:,:,landmask] = 0
+
+        # reshape to 2D and split to train/val/test
+        inputtrainfull = np.reshape(anominput[trainvaltest[0]], (len(trainvaltest[0]) * anominput.shape[1], self.inputlength, inputdims[0], inputdims[1]))
+        inputvalfull = np.reshape(anominput[trainvaltest[1]], (len(trainvaltest[1]) * anominput.shape[1], self.inputlength, inputdims[0], inputdims[1]))
+        inputtestfull = np.reshape(anominput[trainvaltest[2]], (len(trainvaltest[2]) * anominput.shape[1], self.inputlength, inputdims[0], inputdims[1]))
+
+        gmt = self.allGMT[0]
+        gmt_hist = gmt[:,historicalinds[0]:historicalinds[1]]
+        # now work with GMT data
+        # make each sample anomaly from historical era mean
+        inputgmtmean = np.mean(gmt[:,gmthistoricalinds[0]:gmthistoricalinds[1]],axis=1,keepdims=True)
+        inputgmtanom = gmt_hist-inputgmtmean
+        
+        # stack it
+        stackedgmt = stackmatalongdim1(inputgmtanom,self.inputlength)
+        # cut it
+        cutgmt = stackedgmt[:,:-1*(self.outputavgtime)]
+        # control for season in southern hemisphere
+        if self.season==2:
+            cutgmt = cutgmt[:,:-1]
+        # average over sample dimension but keep that dimension
+        avggmt = np.mean(cutgmt,axis=2,keepdims=True)
+
+        self.lenhisttime = avggmt.shape[1]
+        # reshape it to 2D and split to train/val/test
+        inputtrainGMTfull = np.reshape(avggmt[trainvaltest[0]], (len(trainvaltest[0]) * avggmt.shape[1], 1))
+        inputvalGMTfull = np.reshape(avggmt[trainvaltest[1]], (len(trainvaltest[1]) * avggmt.shape[1], 1))
+        inputtestGMTfull = np.reshape(avggmt[trainvaltest[2]], (len(trainvaltest[2]) * avggmt.shape[1], 1))
+
+        # finally, work with record temp data which is calculating the magnitude of the previous record as an input,
+        # and a binary classifier output of whether record summer occurs or not
+        
+        # calculate record summers
+        baselineindices = [baselineera[0]-self.timerange[0],baselineera[1]-self.timerange[0]]
+        print('baseline for temp records is '+ str(baselineindices[0]) + ' ' + str(baselineindices[1]))
+
+        recordtemps = np.zeros((len(self.ssplist),self.alloutput[0].shape[0],self.alloutput[0].shape[1]))
+        recordtempsmag = np.zeros((len(self.ssplist),self.alloutput[0].shape[0],self.alloutput[0].shape[1]))
+
+        for issp,ssp in enumerate(self.ssplist):
+
+            histsel = self.alloutput[issp]
+            histsel = histsel[:,:,latindsel,lonindsel]
+
+            baseline = np.max(histsel[:,baselineindices[0]:baselineindices[1]],axis=1)
+            regionalmean = np.mean(histsel[:,gmthistoricalinds[0]:gmthistoricalinds[1]],axis=1)
+            
+            for iens in range(histsel.shape[0]):
+
+                recordtemps[issp,iens,:] = find_records(histsel[iens,:],baseline[iens])
+                recordtempsmag[issp,iens,:] = find_records_mag(histsel[iens,:],baseline[iens],regionalmean[iens])
+
+        self.recordtemps = recordtemps
+
+        input_recordtempsmag_hist = recordtempsmag[0,:,historicalinds[0]:historicalinds[1]] # grab the historical only
+        # stack it
+        stackedinputrecordmag = stackmatalongdim1(input_recordtempsmag_hist,self.inputlength)
+         # cut it
+        cutinputrecordmag = stackedinputrecordmag[:,:-1*(self.outputavgtime)]
+        # control for season
+        if self.season==2:
+            cutinputrecordmag = cutinputrecordmag[:,:-1]
+        maxpriorrecord = np.max(cutinputrecordmag,axis=2)
+
+        inputtrainrecordmaxfull = np.reshape(maxpriorrecord[trainvaltest[0]], (len(trainvaltest[0]) * maxpriorrecord.shape[1], 1))
+        inputvalrecordmaxfull = np.reshape(maxpriorrecord[trainvaltest[1]], (len(trainvaltest[1]) * maxpriorrecord.shape[1], 1))
+        inputtestrecordmaxfull = np.reshape(maxpriorrecord[trainvaltest[2]], (len(trainvaltest[2]) * maxpriorrecord.shape[1], 1))
+
+        # OUTPUTS
+        output_recordtemps_hist = recordtemps[0,:,historicalinds[0]:historicalinds[1]]
+        # stack it
+        stackedoutput = stackmatalongdim1(output_recordtemps_hist,self.outputavgtime)
+
+         # cut it
+        cutoutput = stackedoutput[:,self.inputlength:]
+        # control for season
+        if self.season==2:
+            cutoutput = cutoutput[:,1:]
+        # number of extremes in a future period
+        
+        nevents = np.sum(cutoutput,axis=2)
+        outputrecordsummer = 1*(nevents>0) # any number >0 is a yes
+        allsummer.append(nevents)
+
+        # reshape it to 2D and split into train/val/test
+        outputtrainfull = np.reshape(outputrecordsummer[trainvaltest[0]], (len(trainvaltest[0]) * outputrecordsummer.shape[1], 1))
+        outputvalfull = np.reshape(outputrecordsummer[trainvaltest[1]], (len(trainvaltest[1]) * outputrecordsummer.shape[1], 1))
+        outputtestfull = np.reshape(outputrecordsummer[trainvaltest[2]], (len(trainvaltest[2]) * outputrecordsummer.shape[1], 1))   
+        
+        endind = -1*self.outputavgtime+1 # stop code from busting if using 1 year lead
+        if endind == 0:
+            endind = None
+
+        futureinds = [endhist-self.timerange[0]-self.inputlength,endind]
+        print('indices of future period are ' + str(futureinds[0]) + ' ' + str(futureinds[1]))
+
+        for issp, ssp in enumerate(self.ssplist):
+
+            print('working on ' + ssp)
+
+            input_annualmean = self.allinput[issp]
+            input_future = input_annualmean[:,futureinds[0]:futureinds[1]]
+            # first work with gridded input data, 
+            # stack it
+            stackedinput = stackmatalongdim1(input_future,self.inputlength)
+            # cut it
+            cutinput = stackedinput[:,:-1*(self.outputavgtime)]
+            # control for season
+            if self.season==2:
+                cutinput = cutinput[:,:-1]
+            # remove mean from sample dimension
+            inputmean = np.mean(cutinput,axis=2,keepdims=True)
+            anominput = cutinput-inputmean
+            # nan out land
+            landmask = np.isnan(anominput[0,0,0])
+            anominput[:,:,:,landmask] = 0
+
+            # reshape to 4D
+            anomreshape_train = np.reshape(anominput[trainvaltest[0]], (len(trainvaltest[0]) * anominput.shape[1], self.inputlength, inputdims[0], inputdims[1]))
+            anomreshape_val = np.reshape(anominput[trainvaltest[1]], (len(trainvaltest[1]) * anominput.shape[1], self.inputlength, inputdims[0], inputdims[1]))
+            anomreshape_test = np.reshape(anominput[trainvaltest[2]], (len(trainvaltest[2]) * anominput.shape[1], self.inputlength, inputdims[0], inputdims[1]))
+
+            inputtrainfull = np.append(inputtrainfull,anomreshape_train,axis=0)
+            inputvalfull = np.append(inputvalfull,anomreshape_val,axis=0)
+            inputtestfull = np.append(inputtestfull,anomreshape_test,axis=0)
+
+            gmt = self.allGMT[issp]
+            gmt_future = gmt[:,futureinds[0]:futureinds[1]]
+            # now work with GMT data
+
+            inputgmtanom = gmt_future-inputgmtmean #use gmt mean from historical (already calculated)
+            # stack it
+            stackedgmt = stackmatalongdim1(inputgmtanom,self.inputlength)
+            # cut it
+            cutgmt = stackedgmt[:,:-1*(self.outputavgtime)]
+            # control for season
+            if self.season==2:
+                cutgmt = cutgmt[:,:-1]
+            # average over sample dimension but keep that dimension
+            avggmt = np.mean(cutgmt,axis=2,keepdims=True)
+            self.lenfuturetime = avggmt.shape[1]
+
+            # reshape it to 2D
+            avggmtreshape_train = np.reshape(avggmt[trainvaltest[0]], (len(trainvaltest[0]) * avggmt.shape[1], 1))
+            avggmtreshape_val = np.reshape(avggmt[trainvaltest[1]], (len(trainvaltest[1]) * avggmt.shape[1], 1))
+            avggmtreshape_test = np.reshape(avggmt[trainvaltest[2]], (len(trainvaltest[2]) * avggmt.shape[1], 1))
+
+            inputtrainGMTfull = np.append(inputtrainGMTfull,avggmtreshape_train,axis=0)
+            inputvalGMTfull = np.append(inputvalGMTfull,avggmtreshape_val,axis=0)
+            inputtestGMTfull = np.append(inputtestGMTfull,avggmtreshape_test,axis=0)
+
+            # input of magnitude of most recent record breaking extreme
+            input_recordtempsmag_future = recordtempsmag[issp,:,futureinds[0]:futureinds[1]]
+            
+            stackedinputrecordmag = stackmatalongdim1(input_recordtempsmag_future,self.inputlength)
+            # print(stackedinputrecordmag.shape)
+            cutinputrecordmag = stackedinputrecordmag[:,:-1*(self.outputavgtime)]
+            # print(cutinputrecordmag.shape)
+            if self.season==2:
+                cutinputrecordmag = cutinputrecordmag[:,:-1]
+            # print(cutinputrecordmag.shape)
+
+            maxpriorrecord = np.max(cutinputrecordmag,axis=2)
+            priorrecord_train = np.reshape(maxpriorrecord[trainvaltest[0]], (len(trainvaltest[0]) * maxpriorrecord.shape[1], 1))
+            priorrecord_val = np.reshape(maxpriorrecord[trainvaltest[1]], (len(trainvaltest[1]) * maxpriorrecord.shape[1], 1))
+            priorrecord_test = np.reshape(maxpriorrecord[trainvaltest[2]], (len(trainvaltest[2]) * maxpriorrecord.shape[1], 1))
+            
+            inputtrainrecordmaxfull = np.append(inputtrainrecordmaxfull,priorrecord_train,axis=0)
+            inputvalrecordmaxfull = np.append(inputvalrecordmaxfull,priorrecord_val,axis=0)
+            inputtestrecordmaxfull = np.append(inputtestrecordmaxfull,priorrecord_test,axis=0)
+
+            # finally, work with output data
+            # binary classifier of n year event or not
+
+            output_recordtemps_future = recordtemps[issp,:,futureinds[0]:futureinds[1]]
+            # stack it
+            stackedoutput = stackmatalongdim1(output_recordtemps_future,self.outputavgtime)
+            # cut it
+            cutoutput = stackedoutput[:,self.inputlength:]
+            # control for season
+            if self.season==2:
+                cutoutput = cutoutput[:,1:]
+            # number of extremes in a future period
+
+            nevents = np.sum(cutoutput,axis=2)
+            outputrecordsummer = 1*(nevents>0) # any number >0 is a yes
+
+            allsummer.append(nevents)
+
+            # reshape it to 2D
+
+            summerreshape_train = np.reshape(outputrecordsummer[trainvaltest[0]], (len(trainvaltest[0]) * outputrecordsummer.shape[1], 1))
+            summerreshape_val = np.reshape(outputrecordsummer[trainvaltest[1]], (len(trainvaltest[1]) * outputrecordsummer.shape[1], 1))
+            summerreshape_test = np.reshape(outputrecordsummer[trainvaltest[2]], (len(trainvaltest[2]) * outputrecordsummer.shape[1], 1))
+
+            outputtrainfull = np.append(outputtrainfull,summerreshape_train,axis=0)
+            outputvalfull = np.append(outputvalfull,summerreshape_val,axis=0)
+            outputtestfull = np.append(outputtestfull,summerreshape_test,axis=0)
+
+        self.truesummer = allsummer
+
+        return [
+            inputtrainfull,  inputtrainGMTfull, inputtrainrecordmaxfull, outputtrainfull,
+            ], [
+            inputvalfull, inputvalGMTfull, inputvalrecordmaxfull, outputvalfull,
+            ], [
+            inputtestfull, inputtestGMTfull, inputtestrecordmaxfull,  outputtestfull] 
+
 
     def trainvaltest_recordmax_ssps(self,trainvaltest,experimentera,inputlength,outputlength,latsel):
 
@@ -941,6 +1200,24 @@ def tensortime_onehot(listofmatrices,nclasses=6):
 
     return inputdata_t, inputgmt_t, outputdata_t
 
+def tensortime_onehot_withrecordmax(listofmatrices,nclasses=6):
+
+    inputdata = listofmatrices[0]
+    inputgmt = listofmatrices[1]
+    inputrecordmax = listofmatrices[2]
+    outputdata = listofmatrices[3]
+
+    inputvectors = np.concatenate((inputgmt,inputrecordmax),axis=-1)
+
+    inputdata_t = torch.tensor(inputdata,dtype=torch.float32)
+    inputvectors_t = torch.tensor(inputvectors,dtype=torch.float32)
+
+    outputdata = torch.tensor(outputdata.squeeze(),dtype=torch.int64)
+    outputonehotencoded = one_hot(outputdata, num_classes=nclasses) 
+    outputdata_t = torch.tensor(outputonehotencoded,dtype=torch.float32)
+
+    return inputdata_t, inputvectors_t, outputdata_t
+
 def tensortime_onehot_inputoutput(inputx2,outputdata,nclasses=6):
 
     inputdata = inputx2[0]
@@ -955,6 +1232,21 @@ def tensortime_onehot_inputoutput(inputx2,outputdata,nclasses=6):
 
     return inputdata_t, inputgmt_t, outputdata_t
 
+def tensortime_onehot_inputoutput_withrecordmax(inputx2,outputdata,nclasses=6):
+
+    inputdata = inputx2[0]
+    inputgmt = inputx2[1]
+    inputrecordmax = inputx2[2]
+    inputvectors = np.concatenate((inputgmt,inputrecordmax),axis=-1)
+
+    inputdata_t = torch.tensor(inputdata,dtype=torch.float32)
+    inputvectors_t = torch.tensor(inputvectors,dtype=torch.float32)
+
+    outputdata = torch.tensor(outputdata.squeeze(),dtype=torch.int64)
+    outputonehotencoded = one_hot(outputdata, num_classes=nclasses) 
+    outputdata_t = torch.tensor(outputonehotencoded,dtype=torch.float32)
+
+    return inputdata_t, inputvectors_t, outputdata_t
 
 def tensortime_classindex(listofmatrices,nclasses=6):
 
@@ -1034,6 +1326,22 @@ def find_records(temps,baseline):
             current_max = temp
 
     return records
+
+def find_records_mag(temps,baselinemax,climo):
+    # Compare each value to the maximum of all previous values
+    records_mag = np.zeros(len(temps))
+    current_max = np.copy(baselinemax)
+    # current_max = np.max(baseline)
+    
+    for i, temp in enumerate(temps):
+        if temp > current_max:
+            records_mag[i] = temp
+            current_max = temp
+        else:
+            records_mag[i] = current_max
+
+    records_mag_anom = records_mag-climo
+    return records_mag_anom
 
 def stackobs(mat,stacklength):
 

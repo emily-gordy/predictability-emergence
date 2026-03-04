@@ -1,11 +1,69 @@
-## Nextflow pipeline
+# Nextflow pipeline for predictability-emergence
+
+## Installing the scripts
+
+The nextflow pipeline requires scripts to be installed:
 
 ```
-nextflow clean -f
-nextflow run predict-emergence.nf -profile test,local
+pip install -e .
+```
+Check that the commands 
+```
+trainnn -h
+evalnn -h 
+```
+work.
+
+## Running tests outside of nextflow
+
+You will need to have access to data.
+
+You can run manual tests with
+```
+pytest tests --data_dir=<path/to/data>
+```
+or
+```
+DATA_DIR=<path/to/data> pytest tests
 ```
 
-### some settings for Mahuika
+Notes: You can run a single test file, e.g. `pytest tests/test_trainnn.py`, or a single test inside a test file, e.g. `pytest tests/test_trainnn.py::test_small`. You will need about 10GB of memory to run this test. On mahuika we recommend to run this test under SLURM.
+
+## Commands to execute the pipeline
+
+```
+nextflow run predict-emergence.nf -profile test,local -with-dag test_workflow.png
+```
+This will launch a quick version of the workflow for testing locally. 
+
+Should the workflow be interrupted for any reason, you can restart it with
+```
+nextflow run predict-emergence.nf -profile test,local -resume
+```
+
+To submit Mahuika using the SLURM scheduler
+```
+nextflow run predict-emergence.nf -profile test,mahuika -resume
+
+To clean up the results
+```
+nextflow clean -free
+```
+
+## What is something goes wrong?
+
+It is possible to inspect the output of some scripts to determine the cause of a potential failure. When executing the workflow you'll see 
+something like `[c9/f4eb84]`. 
+```
+ls work/c9/f4eb84[TAB]
+```
+will show the produced files. In this directory, look for
+```
+ls work/c9/f4eb847fb16541735061ac92e99669/.command.*
+```
+to find stderr and other output messages.
+
+## Running on Mahuika
 
 `module purge && module load Nextflow/25.10.2`
 
@@ -19,24 +77,6 @@ In `nextflow.config` there are a couple of relevant parameters.
 `conda.enabled` just tells Nextflow to use conda environments.
 `conda.cachedir` lets you set a cache dir (currently set to my nobackup dir, but change as you wish).
 
-## Installing the scripts
-
-```
-pip install -e .
-```
-Check that the commands 
-```
-trainnn -h
-evalnn -h 
-```
-work.
-
-## Running tests
-
-You can run manual tests with
-```
-pytest tests --data_dir=<path/to/data>
-```
 
 ## Nextflow getting started resources
 
@@ -61,8 +101,6 @@ It then saves info about the best models in a new pickle dump.
 
 refactoring:
 
-- add testing!
-  - easy to set up test for eval step, just give some fake metrics
 - currently doing a pickle dump from evalnn, what is the actual desired output?
 - comment on or change file naming scheme to work for floats for lat/lon inputs
 - add scoring to trainnn.py and remove from evalnn.py

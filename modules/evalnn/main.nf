@@ -11,7 +11,7 @@ process evalnn {
     script:
     """
     evalnn --lat ${lat} \
-        --n_best ${params.n_best}
+        --n_best ${params.n_best} \
         --outputavgtime ${params.outputavgtime} \
         --ssps ${params.ssps} \
         --experiment_era ${params.experiment_era} \

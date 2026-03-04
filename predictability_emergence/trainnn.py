@@ -63,7 +63,7 @@ def val_loop(dataloader, model, loss_fn, optimizer, scheduler, device):
 
     # Compute the overall loss (sum of individual losses divided by the number of samples)
     print(f'**** batch_losses = {batch_losses}')
-    valid_loss = batch_losses.mean() # should this be all_losses?
+    valid_loss = np.mean(np.asarray(all_losses).squeeze()) # should this be all_losses?
     print(f'*** valid_loss = {valid_loss}')
 
     logger.info("validation loss: %s", valid_loss)
@@ -253,14 +253,14 @@ def main():
     train_val = np.random.choice(n_train + n_val, n_train + n_val, replace=False)
 
     train_valtest = [train_val[:n_train], train_val[n_train : n_train + n_val], test]
-    alltrain, allval, _ = AllData.trainvaltest_recordmax(
+    alltrain, allval, _ = AllData.trainvaltest_recordmax_withrecordmax(
         train_valtest, experiment_era, baseline_era, input_length, outputavgtime, lat, lon
     )
 
-    inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_onehot(
+    inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_onehot_withrecordmax(
         alltrain, nclasses=2
     )
-    inputval, inputvalGMT, outputval = DataHolder.tensortime_onehot(allval, nclasses=2)
+    inputval, inputvalGMT, outputval = DataHolder.tensortime_onehot_withrecordmax(allval, nclasses=2)
 
     traindataset = TensorDataset(inputtrain, inputtrainGMT, outputtrain)
     train_loader = DataLoader(traindataset, batch_size=batch_size, shuffle=True)
@@ -383,7 +383,7 @@ def main():
 
         save_metrics(
             seed,
-            best_val_loss.cpu().numpy().item(),
+            best_val_loss,
             valacc,
             val_randomchance,
             metricsout,
