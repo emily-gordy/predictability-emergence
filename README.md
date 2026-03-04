@@ -1,6 +1,33 @@
 # Nextflow pipeline for predictability-emergence
 
+## Installing the scripts
 
+The nextflow pipeline requires scripts to be installed:
+
+```
+pip install -e .
+```
+Check that the commands 
+```
+trainnn -h
+evalnn -h 
+```
+work.
+
+## Running tests outside of nextflow
+
+You will need to have access to data.
+
+You can run manual tests with
+```
+pytest tests --data_dir=<path/to/data>
+```
+or
+```
+DATA_DIR=<path/to/data> pytest tests
+```
+
+Notes: You can run a single test file, e.g. `pytest tests/test_trainnn.py`, or a single test inside a test file, e.g. `pytest tests/test_trainnn.py::test_small`. You will need about 10GB of memory to run this test. On mahuika we recommend to run this test under SLURM.
 
 ## Commands to execute the pipeline
 
@@ -20,7 +47,7 @@ nextflow run predict-emergence.nf -profile test,mahuika -resume
 
 To clean up the results
 ```
-nextflow clean -f
+nextflow clean -free
 ```
 
 ## What is something goes wrong?
@@ -50,24 +77,6 @@ In `nextflow.config` there are a couple of relevant parameters.
 `conda.enabled` just tells Nextflow to use conda environments.
 `conda.cachedir` lets you set a cache dir (currently set to my nobackup dir, but change as you wish).
 
-## Installing the scripts
-
-```
-pip install -e .
-```
-Check that the commands 
-```
-trainnn -h
-evalnn -h 
-```
-work.
-
-## Running tests outside of nextflow
-
-You can run manual tests with
-```
-pytest tests --data_dir=<path/to/data>
-```
 
 ## Nextflow getting started resources
 
