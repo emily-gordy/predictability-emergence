@@ -108,7 +108,7 @@ def main():
     parser.add_argument("--output_var", type=str, default="tas")
     parser.add_argument("--n_train", type=int, default=25)
     parser.add_argument("--n_val", type=int, default=13)
-    parser.add_argument("--test", nargs=2, type=int, default=[38, 49])
+    parser.add_argument("--test", nargs=2, type=int, default=[38, 50])
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--lr", type=float, default=0.05)
     # parser.add_argument("--ridge_pen", type=float, default=1e-6) # is this used?
@@ -136,7 +136,7 @@ def main():
     output_var = args.output_var
     n_train = args.n_train
     n_val = args.n_val
-    test = np.array(args.test)
+    test = np.arange(args.test[0],args.test[1])
     batch_size = args.batch_size
     lr = args.lr
     # ridge_pen = args.ridge_pen
@@ -171,7 +171,7 @@ def main():
     # get the data
 
     AllData = DataHolder.MPIInputOutput_SSPlist(params,ssp_list)
-    landmask = np.isnan(AllData.alloutput[0][0,0])
+    # landmask = np.isnan(AllData.alloutput[0][0,0])
 
     # split data
 
@@ -183,40 +183,43 @@ def main():
 
     _, _, alltest = AllData.trainvaltest_recordmax(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,dummylon)
 
-    inputtest, inputtestGMT, _ = DataHolder.tensortime_onehot(alltest,nclasses=2)
+    _, inputtestGMT, _ = DataHolder.tensortime_onehot(alltest,nclasses=2)
 
     alltestpred = np.zeros((len(AllData.output_lon),n_best,len(inputtestGMT)))
     alltesttrue = np.zeros((len(AllData.output_lon),len(inputtestGMT)))
-    testpredfile = "predictions/"+model_file_front+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_testing.pkl"
-    testtruefile = "predictions/"+model_file_front+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_truetesting.pkl"
+    testpredfile = "predictions/"+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_testing.pkl"
+    testtruefile = "predictions/"+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_truetesting.pkl"
 
     for ilon,lon in enumerate(AllData.output_lon):
 
-        metricsout = model_file_front+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_lon"+str(lon)+"_seed*.json"
+        print(lon)
+
+        metricsout = "metrics/"+ model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_seed*.json"
         filelist = glob.glob(metricsout)
 
-        testmetricsout = model_file_front+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_lon"+str(lon)+"_testing.json"
+        testmetricsout = "metrics/"+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_testing.json"
 
         if len(filelist)!=0:
             logging.info("Models exist, proceeding")
 
-            bestseeds = get_best_files(filelist,n_best)
-            # print(bestseeds)
-            _, _, outputtestall = AllData.trainvaltest_recordmax_outputonly(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,lon)
+            _, _, alltest = AllData.trainvaltest_recordmax_withrecordmax(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,lon)
 
-            inputtest,inputtestGMT,outputtest = DataHolder.tensortime_onehot_inputoutput(alltest,outputtestall,nclasses=2)
+            inputtest, inputtestGMT, outputtest = DataHolder.tensortime_onehot_withrecordmax(alltest,nclasses=2)
+            bestseeds = get_best_files(filelist,n_best)
+            print(bestseeds)
+
             testtrueclass = np.argmax(outputtest.numpy(),axis=1)
             alltesttrue[ilon] = testtrueclass
 
-            testimbalance = np.mean(outputtestall)
-            testimbalance = [(1-testimbalance),testimbalance]
-            nullimbalance = np.max(np.asarray(testimbalance))
+            testimbalance = np.mean(outputtest[:,1].numpy())
+            testimbalance = [float((1-testimbalance)),float(testimbalance)]
+
             logging.info("Test imbalance is %s:%s", testimbalance[0], testimbalance[1])
 
             for iseed,seed in enumerate(bestseeds):
                 # load the model
 
-                loadfile = model_file_front+"avgtime"+str(outputavgtime)+"_allssps_lat"+str(lat)+"_lon"+str(lon)+"_seed"+str(seed)+".pt"
+                loadfile = "models/"+ model_file_front+ "avgtime_"+ str(outputavgtime)+ "_allssps_lat_"+ str(lat)+ "_lon_"+ str(lon)+ "_seed_"+ str(seed)+ ".pt"
                 cnn = buildmodel.CNNclassifier(inputtest, inputtestGMT, 2).to('cpu')
                 cnn.load_state_dict(torch.load(loadfile,map_location=torch.device('cpu'), weights_only=False))
                 cnn.to(device)
