@@ -92,6 +92,8 @@ def main():
     parser = argparse.ArgumentParser(prog="evalnn")
     # main parameters
     parser.add_argument("--lat", type=int, default=0)
+    parser.add_argument("--model_file", type=str)
+    parser.add_argument("--metrics_file", type=str)
     # just in case parameters
     parser.add_argument("--outputavgtime", type=int, default=5)
     parser.add_argument("--ssps", nargs="+", default=["126", "245", "370", "585"])
@@ -110,10 +112,13 @@ def main():
     parser.add_argument("--test", nargs=2, type=int, default=[38, 50])
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--data_dir", type=str, default="../data/")
+    parser.add_argument("--output_dir", type=str, default="predictions/")
 
     args = parser.parse_args()
 
     lat = args.lat
+    model_file = args.model_file
+    metrics_file = args.metrics_file
     outputavgtime = args.outputavgtime
     ssp_list = args.ssps
     experiment_era = args.experiment_era
@@ -131,6 +136,7 @@ def main():
     test = np.arange(args.test[0],args.test[1])
     batch_size = args.batch_size
     data_dir = args.data_dir
+    output_dir = args.output_dir
 
     # make parameter dictionary to be passed to DataHolder
     params = {
@@ -202,9 +208,9 @@ def main():
 
             logging.info("Test imbalance is %s:%s", testimbalance[0], testimbalance[1])
 
-            cnn = buildmodel.CNNclassifier(inputtest, inputtestGMT, 2).to('cpu')
-            cnn.load_state_dict(torch.load(model_file,map_location=torch.device('cpu'), weights_only=False))
-            cnn.to(device)
+        cnn = buildmodel.CNNclassifier(inputtest, inputtestGMT, 2).to('cpu')
+        cnn.load_state_dict(torch.load(model_file,map_location=torch.device('cpu'), weights_only=False))
+        cnn.to(device)
 
             with torch.no_grad():
                 cnn.eval()
@@ -214,18 +220,17 @@ def main():
                 cnn.load_state_dict(torch.load(loadfile,map_location=torch.device('cpu'), weights_only=False))
                 cnn.to(device)
 
-            alltestpred[ilon,iseed,] = testpred[:,1]
+        alltestpred[ilon,] = testpred[:,1]
 
-            predmean = np.mean(alltestpred[ilon],axis=0) # confidence in positive class
-            predclass = np.round(predmean) # prediction class
-            predconf = np.where(predmean<0.5,1-predmean,predmean)
+        predmean = np.mean(alltestpred[ilon],axis=0) # confidence in positive class
+        predclass = np.round(predmean) # prediction class
+        predconf = np.where(predmean<0.5,1-predmean,predmean)
 
-            accuracy = confacc(predclass,testtrueclass,predconf)
+        accuracy = confacc(predclass,testtrueclass,predconf)
 
-            save_metrics(accuracy, testimbalance, testmetricsout)
+        save_metrics(accuracy, testimbalance, testmetricsout)
 
-    with open(testpredfile,'wb') as f:
-        pickle.dump(alltestpred,f)
+    np.savetxt(alltestfile, alltestpred, delimiter = ',')
 
 # %%
 if __name__ == "__main__":
