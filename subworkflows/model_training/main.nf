@@ -1,5 +1,5 @@
 include { train_predict } from '../../modules/train_predict/main.nf'
-include { evalnn } from '../../modules/evalnn/main.nf'
+// include { evalnn } from '../../modules/evalnn/main.nf'
 
 workflow MODEL_TRAINING {
     take:
