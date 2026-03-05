@@ -9,7 +9,7 @@ int parseIntStrict(String s, String name) {
     if (s == null) {
         throw new IllegalArgumentException("${name} is null")
     }
-    final t = s.trim()
+    String t = s.trim()
     if (!t) {
         throw new IllegalArgumentException("${name} is empty")
     }
@@ -33,9 +33,9 @@ int parseIntStrict(String s, String name) {
  *   makeId("0",   "0",   "1")    -> "0N0001"
  */
 String makeId(String latStr, String lonStr, String seedStr) {
-    final int lat  = parseIntStrict(latStr,  'lat')
-    final int lon  = parseIntStrict(lonStr,  'lon')
-    final int seed = parseIntStrict(seedStr, 'seed')
+    Integer lat  = parseIntStrict(latStr,  'lat')
+    Integer lon  = parseIntStrict(lonStr,  'lon')
+    Integer seed = parseIntStrict(seedStr, 'seed')
 
     if (lat < -90 || lat > 90) {
         throw new IllegalArgumentException("Latitude must be in [-90, 90], got: ${lat}")
@@ -44,9 +44,9 @@ String makeId(String latStr, String lonStr, String seedStr) {
         throw new IllegalArgumentException("Longitude must be in [0, 360], got: ${lon}")
     }
 
-    final String hemi    = (lat >= 0) ? 'N' : 'S'
-    final int absLat     = Math.abs(lat)
-    final String lonPart = String.format("%03d", lon)   // <-- 3-digit padded longitude
+    String hemi    = (lat >= 0) ? 'N' : 'S'
+    Integer absLat     = Math.abs(lat)
+    String lonPart = String.format("%03d", lon)   // <-- 3-digit padded longitude
 
     return "${absLat}${hemi}${lonPart}${seed}"
 }
@@ -65,7 +65,7 @@ String makeId(String latStr, String lonStr, String seedStr) {
  */
 Map parseId(String id, boolean allowLegacyUnpadded = false) {
     if (id == null) throw new IllegalArgumentException("id is null")
-    final s = id.trim()
+    String s = id.trim()
     if (!s) throw new IllegalArgumentException("id is empty")
 
     // First try strict padded pattern: lon is exactly 3 digits
@@ -81,10 +81,10 @@ Map parseId(String id, boolean allowLegacyUnpadded = false) {
         )
     }
 
-    final int absLat = Integer.parseInt(m.group(1))
-    final String hemi = m.group(2)
-    final int lon     = Integer.parseInt(m.group(3))
-    final String seedStr = m.group(4)
+    Integer absLat = Integer.parseInt(m.group(1))
+    String hemi = m.group(2)
+    Integer lon     = Integer.parseInt(m.group(3))
+    String seedStr = m.group(4)
 
     if (absLat < 0 || absLat > 90) {
         throw new IllegalArgumentException("Latitude magnitude must be in [0, 90], got: ${absLat}")
@@ -93,8 +93,8 @@ Map parseId(String id, boolean allowLegacyUnpadded = false) {
         throw new IllegalArgumentException("Longitude must be in [0, 360], got: ${lon}")
     }
 
-    final int lat = (hemi == 'N') ? absLat : -absLat
-    final int seed
+    Integer lat = (hemi == 'N') ? absLat : -absLat
+    Integer seed
     try {
         seed = Integer.parseInt(seedStr)
     } catch (NumberFormatException e) {

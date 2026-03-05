@@ -1,5 +1,16 @@
 # Nextflow pipeline for predictability-emergence
 
+## Quick start
+
+On Mahuika:
+```
+conda activate /nesi/nobackup/nesi99999/jreeve/predictability-emergence/ml-env
+module purge && module load Nextflow/25.10.2
+export NXF_SYNTAX_PARSER='v2'
+pip install -e .
+nextflow run predict-emergence.nf -profile test,mahuika
+```
+
 ## Installing the scripts
 
 The nextflow pipeline requires scripts to be installed:
