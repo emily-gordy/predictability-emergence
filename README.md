@@ -44,7 +44,7 @@ nextflow run predict-emergence.nf -profile test,local -resume
 To submit Mahuika using the SLURM scheduler
 ```
 nextflow run predict-emergence.nf -profile test,mahuika -resume
-
+```
 To clean up the results
 ```
 nextflow clean -free
