@@ -1,7 +1,8 @@
 __pycache__/*
-*/__pycache__
+*/__pycache__/*
 models/*
 data/*
+conda_cache/*
 .vscode/*
 .DS_Store*
 *.csv
