@@ -253,9 +253,14 @@ def main():
     train_val = np.random.choice(n_train + n_val, n_train + n_val, replace=False)
 
     train_valtest = [train_val[:n_train], train_val[n_train : n_train + n_val], test]
-    alltrain, allval, _ = AllData.trainvaltest_recordmax_withrecordmax(
+    # alltrain, allval, _ = AllData.trainvaltest_recordmax_withrecordmax(
+    #     train_valtest, experiment_era, baseline_era, input_length, outputavgtime, lat, lon
+    # )
+
+    alltrain, allval, _ = AllData.trainvaltest_histrecordmax(
         train_valtest, experiment_era, baseline_era, input_length, outputavgtime, lat, lon
     )
+    print(np.mean(alltrain[-1].squeeze()))
 
     inputtrain, inputtrainGMT, outputtrain = DataHolder.tensortime_onehot_withrecordmax(
         alltrain, nclasses=2
@@ -297,6 +302,7 @@ def main():
 
     # lightly weight the class imbalance
     classimbalance = np.mean(alltrain[-1].squeeze())
+    print(classimbalance)
     if classimbalance > 0:  # cant train where it never happens
         weights_corrected = lightclassweighting(classimbalance, device)
 
