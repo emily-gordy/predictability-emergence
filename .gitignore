@@ -17,3 +17,4 @@ outputs/*
 Jen_notes.md
 !data/inputs.csv
 !data/test_inputs.csv
+figs/*

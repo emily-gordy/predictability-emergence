@@ -6,7 +6,7 @@
 #SBATCH --ntasks=1
 #SBATCH --cpus-per-task=8
 #SBATCH --array=0-16
-#SBATCH --mem=40GB
+#SBATCH --mem=10GB
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --mail-user=emily.gordon@auckland.ac.nz
 #SBATCH --time=8:00:00
@@ -28,4 +28,4 @@ LATS=(-70 -60 -50 -40 -30 -20 -10 0 10 20 30 40 50 60 70 80)
 # Get the latitude for this task
 LAT=${LATS[$SLURM_ARRAY_TASK_ID]}
 
-python3 -u evalnn.py --lat=LAT
+python3 -u evalnn.py --lat=${LAT}

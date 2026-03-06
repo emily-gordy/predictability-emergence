@@ -319,7 +319,7 @@ def main():
                 metricfilecheck = glob.glob(metricsout)
                 if len(metricfilecheck)==0:
 
-                    alltrain, allval, _ = AllData.trainvaltest_recordmax_withrecordmax(
+                    alltrain, allval, _ = AllData.trainvaltest_histrecordmax(
                         train_valtest, experiment_era, baseline_era, input_length, outputavgtime, lat, lon
                     )
 

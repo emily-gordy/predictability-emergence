@@ -7,10 +7,10 @@
 #SBATCH --cpus-per-task=8
 #SBATCH --array=0-9
 #SBATCH --gres=gpu:1
-#SBATCH --mem=40GB
+#SBATCH --mem=25GB
 #SBATCH --mail-type=BEGIN,END,FAIL
 #SBATCH --mail-user=emily.gordon@auckland.ac.nz
-#SBATCH --time=8:00:00
+#SBATCH --time=15:00:00
 #SBATCH -p serc
 
 module purge
@@ -24,4 +24,4 @@ module load py-scipy/1.12.0_py312
 
 cd /scratch/users/egordon4/predictability-emergence/bin/
 
-python3 -u trainnn.py --seed=$SLURM_ARRAY_TASK_ID
+python3 -u trainnn.py --seed=$SLURM_ARRAY_TASK_ID --model_file_front="MPI_histrecord_
