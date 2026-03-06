@@ -16,3 +16,4 @@ runInfo/*
 outputs/*
 !data/inputs.csv
 !data/test_inputs.csv
+figs/*
