@@ -1,4 +1,5 @@
-#File for preprocessing GCM large ensembles
+"""Module for generating gridded sst, gridded summertime temp, and global mean near surface temp
+    Requires large ensemble netcdf files in the data directory"""
 
 import xarray as xr
 import xesmf as xe

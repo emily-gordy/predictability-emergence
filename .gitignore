@@ -1,6 +1,8 @@
 __pycache__/*
+*/__pycache__/*
 models/*
 data/*
+conda_cache/*
 .vscode/*
 .DS_Store*
 *.csv
@@ -9,3 +11,9 @@ data/*
 metrics/*
 predictions/*
 archive/*
+.nextflow*
+work/*
+runInfo/*
+outputs/*
+!data/inputs.csv
+!data/test_inputs.csv

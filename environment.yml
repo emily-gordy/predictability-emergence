@@ -1,0 +1,17 @@
+name: ml-env
+channels:
+  - conda-forge
+  - pytorch
+dependencies:
+  - python=3.9
+  - pandas
+  - xarray
+  - xesmf
+  - dask
+  - netCDF4
+  - bottleneck
+  - pytorch::pytorch
+  - pytorch::torchvision
+  - pytorch::torchaudio
+  - pip
+      - .

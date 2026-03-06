@@ -1,4 +1,5 @@
 """Build models"""
+"""Module for building CNN"""
 
 import torch
 import torch.nn as nn
@@ -258,7 +259,7 @@ class CNNclassifier(nn.Module):
         
         self.linear_layers = nn.ModuleList()
 
-        self.linear_layers.append(nn.Linear(in_features=self.get_flatten_size()+1, out_features=hiddens[0]))
+        self.linear_layers.append(nn.Linear(in_features=self.get_flatten_size()+self.inputshape2[1], out_features=hiddens[0]))
         # self.linear_layers.append(nn.BatchNorm1d(num_features=hiddens[0]))
         self.linear_layers.append(nn.ReLU())
         
