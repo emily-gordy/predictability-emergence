@@ -17,3 +17,5 @@ outputs/*
 !data/inputs.csv
 !data/test_inputs.csv
 figs/*
+lr_models/*
+*.joblib
