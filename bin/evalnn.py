@@ -178,7 +178,7 @@ def main():
 
     trainvaltest = [trainval[:n_train],trainval[n_train:n_train+n_val],test]
 
-    _, _, alltest = AllData.trainvaltest_recordmax_withrecordmax(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,dummylon)
+    _, _, alltest = AllData.trainvaltest_histrecordmax(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,dummylon)
 
     _, inputtestGMT, _ = DataHolder.tensortime_onehot_withrecordmax(alltest,nclasses=2)
 
@@ -200,7 +200,7 @@ def main():
         if len(filelist)!=0:
             logging.info("Models exist, proceeding")
 
-            _, _, alltest = AllData.trainvaltest_recordmax_withrecordmax(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,lon)
+            _, _, alltest = AllData.trainvaltest_histrecordmax(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,lon)
 
             inputtest, inputtestGMT, outputtest = DataHolder.tensortime_onehot_withrecordmax(alltest,nclasses=2)
 

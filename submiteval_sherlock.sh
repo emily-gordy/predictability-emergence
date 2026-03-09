@@ -28,4 +28,4 @@ LATS=(-70 -60 -50 -40 -30 -20 -10 0 10 20 30 40 50 60 70 80)
 # Get the latitude for this task
 LAT=${LATS[$SLURM_ARRAY_TASK_ID]}
 
-python3 -u evalnn.py --lat=${LAT}
+python3 -u evalnn.py --lat=${LAT} --model_file_front="MPI_histrecord_" --outputavgtime=5

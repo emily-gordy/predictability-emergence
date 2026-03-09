@@ -24,4 +24,4 @@ module load py-scipy/1.12.0_py312
 
 cd /scratch/users/egordon4/predictability-emergence/bin/
 
-python3 -u trainnn.py --seed=$SLURM_ARRAY_TASK_ID --model_file_front="MPI_histrecord_
+python3 -u trainnn.py --seed=$SLURM_ARRAY_TASK_ID --model_file_front="MPI_histrecord_"
