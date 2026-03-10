@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 
 from predictability_emergence import DataHolder
+from predictability_emergence import commonConfig
+
 import numpy as np
 import torch
 import argparse
@@ -15,7 +17,11 @@ def main():
 
     # setting up parser
     parser = argparse.ArgumentParser(prog="basepred")
-    # just in case parameters
+
+    # common, default parameters
+    parser.add_argument("--config", default="config/common_params.json", help="Path to common JSON config")
+
+    # the common config arguments can be overidden by command line arguments
     parser.add_argument("--outputavgtime", type=int, default=5)
     parser.add_argument("--ssps", nargs="+",
                         default=["126", "245", "370", "585"],
@@ -34,10 +40,12 @@ def main():
     parser.add_argument("--n_train", type=int, default=25)
     parser.add_argument("--n_val", type=int, default=13)
     parser.add_argument("--test", nargs=2, type=int, default=[38, 49])
+
+    # options specific to this script
     parser.add_argument("--data_dir", type=str, default="../data")
     parser.add_argument("--output_dir", type=str, default="predictions/")
 
-    args = parser.parse_args()
+    args = commonConfig.apply_common_config_and_parse_args(parser)
 
     outputavgtime = args.outputavgtime
     ssp_list = args.ssps

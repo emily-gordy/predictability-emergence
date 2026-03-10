@@ -172,10 +172,10 @@ def main():
     parser.add_argument("--epochs", type=int, default=200)
     parser.add_argument("--momentum", type=float, default=0.5)
 
-    # just in case parameters
+    # common, default parameters
     parser.add_argument("--config", default="config/common_params.json", help="Path to common JSON config")
 
-    # the config arguments can be overidden by command line arguments
+    # the common config arguments can be overidden by command line arguments
     parser.add_argument("--outputavgtime", type=int, default=5)
     parser.add_argument("--ssps", nargs="+", type=str, 
                         default=["126", "245", "370", "585"], 
@@ -195,10 +195,10 @@ def main():
     parser.add_argument("--n_val", type=int, default=13)
     parser.add_argument("--test", nargs=2, type=int, default=[38, 50])
     parser.add_argument("--batch_size", type=int, default=128)
+
     parser.add_argument("--data_dir", type=str, default="../data/")
  
     args = commonConfig.apply_common_config_and_parse_args(parser)
-
 
     lat = args.lat
     lon = args.lon

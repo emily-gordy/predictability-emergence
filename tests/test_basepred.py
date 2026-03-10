@@ -14,5 +14,5 @@ def test_help():
 
 def test_small(data_dir):
     if data_dir is not None:
-        result = run(f"basepred --data_dir {data_dir} --outputavgtime=5 --ssps 126 --baseline_era 1900 1910 --experiment_era 2000 2010")
+        result = run(f"basepred --data_dir {data_dir} --outputavgtime=5 --ssps 126 --baseline_era 1900 1910 --experiment_era 2000 2010 --test 38 49")
         assert result.returncode == 0
