@@ -12,20 +12,7 @@ process evalnn {
     """
     evalnn --lat ${lat} \
         --n_best ${params.n_best} \
-        --outputavgtime ${params.outputavgtime} \
-        --ssps ${params.ssps} \
-        --experiment_era ${params.experiment_era} \
-        --baseline_era ${params.baseline_era} \
-        --input_length ${params.input_length} \
-        --in_res ${params.in_res} \
-        --out_res ${params.out_res} \
-        --time_range ${params.time_range} \
-        --file_front ${params.file_front} \
-        --model_file_front ${params.model_file_front} \
-        --input_var ${params.input_var} \
-        --output_var ${params.output_var} \
-        --n_train ${params.n_train} \
-        --n_val ${params.n_val} \
+        --config ${params.common_config}
         --test ${params.test} \
         --batch_size ${params.batch_size} \
         --lr ${params.lr} \
