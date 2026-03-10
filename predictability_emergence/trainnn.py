@@ -2,6 +2,7 @@
 
 from predictability_emergence import DataHolder
 from predictability_emergence import buildmodel
+from predictability_emergence import commonConfig
 
 import numpy as np
 import torch
@@ -163,7 +164,18 @@ def main():
     parser.add_argument("--lat", type=int, default=0)
     parser.add_argument("--lon", type=int, default=0)
     parser.add_argument("--seed", type=int, default=0)
+
+    parser.add_argument("--lr", type=float, default=0.05)
+    # parser.add_argument("--ridge_pen", type=float, default=1e-6) # is this used?
+    parser.add_argument("--lr_patience", type=int, default=7)
+    parser.add_argument("--early_stopping_patience", type=int, default=20)
+    parser.add_argument("--epochs", type=int, default=200)
+    parser.add_argument("--momentum", type=float, default=0.5)
+
     # just in case parameters
+    parser.add_argument("--config", default="config/common_params.json", help="Path to common JSON config")
+
+    # the config arguments can be overidden by command line arguments
     parser.add_argument("--outputavgtime", type=int, default=5)
     parser.add_argument("--ssps", nargs="+", type=str, 
                         default=["126", "245", "370", "585"], 
@@ -183,15 +195,10 @@ def main():
     parser.add_argument("--n_val", type=int, default=13)
     parser.add_argument("--test", nargs=2, type=int, default=[38, 50])
     parser.add_argument("--batch_size", type=int, default=128)
-    parser.add_argument("--lr", type=float, default=0.05)
-    # parser.add_argument("--ridge_pen", type=float, default=1e-6) # is this used?
-    parser.add_argument("--lr_patience", type=int, default=7)
-    parser.add_argument("--early_stopping_patience", type=int, default=20)
-    parser.add_argument("--epochs", type=int, default=200)
-    parser.add_argument("--momentum", type=float, default=0.5)
     parser.add_argument("--data_dir", type=str, default="../data/")
+ 
+    args = commonConfig.apply_common_config_and_parse_args(parser)
 
-    args = parser.parse_args()
 
     lat = args.lat
     lon = args.lon
