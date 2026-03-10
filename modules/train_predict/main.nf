@@ -18,6 +18,7 @@ process train_predict {
 
     """
     trainnn --lat ${lat} --seed ${seed} --lon ${lon} \
+        --config ${params.common_config} \
         --outputavgtime ${params.outputavgtime} \
         --ssps ${ssp_list} \
         --experiment_era ${experiment_era} \
