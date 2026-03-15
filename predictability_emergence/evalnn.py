@@ -36,27 +36,6 @@ def save_metrics(accuracy, class_imbalance, json_file):
     with open(json_file, 'w') as f:
         json.dump(result, f, indent=2)
 
-def get_best_files(filelist,n_best):
-    results = []
-    for file in filelist:
-        with open(file, 'r') as f:
-            results.append(json.load(f))
-    
-    allaccs = np.asarray([results[i]['val_accuracy'] for i in range(len(filelist))])
-    allnulls = np.asarray([results[i]['val_class_imbalance'] for i in range(len(filelist))])
-    allseeds = np.asarray([results[i]['seed'] for i in range(len(filelist))])
-    bestseedinds = np.argsort(allaccs-allnulls)[-n_best:]
-
-    # print(bestseedinds)
-
-    bestseeds = allseeds[bestseedinds]
-    # bestfiles = []
-    # for bestind in bestseedinds:
-    #     bestfile = filelist[bestind]
-    #     bestfiles.append(bestfile)
-
-    return bestseeds
-
 def confacc(predclass,trueclass,predconf):
 
     predcorr = predclass==trueclass
@@ -92,8 +71,6 @@ def main():
     parser = argparse.ArgumentParser(prog="evalnn")
     # main parameters
     parser.add_argument("--lat", type=int, default=0)
-    parser.add_argument("--model_file", type=str)
-    parser.add_argument("--metrics_file", type=str)
     # just in case parameters
     parser.add_argument("--outputavgtime", type=int, default=5)
     parser.add_argument("--ssps", nargs="+", default=["126", "245", "370", "585"])
@@ -113,12 +90,12 @@ def main():
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--data_dir", type=str, default="../data/")
     parser.add_argument("--output_dir", type=str, default="predictions/")
+    parser.add_argument("--model_dir", type=str, default="models/")
+    parser.add_argument("--metrics_dir", type=str, default="metrics/")
 
     args = parser.parse_args()
 
     lat = args.lat
-    model_file = args.model_file
-    metrics_file = args.metrics_file
     outputavgtime = args.outputavgtime
     ssp_list = args.ssps
     experiment_era = args.experiment_era
@@ -137,6 +114,8 @@ def main():
     batch_size = args.batch_size
     data_dir = args.data_dir
     output_dir = args.output_dir
+    model_dir = args.model_dir
+    metrics_dir = args.metrics_dir
 
     # make parameter dictionary to be passed to DataHolder
     params = {
@@ -179,17 +158,16 @@ def main():
 
     alltestpred = np.zeros((len(AllData.output_lon),n_best,len(inputtestGMT)))+np.nan
     alltesttrue = np.zeros((len(AllData.output_lon),len(inputtestGMT)))+np.nan
-    testpredfile = "predictions/"+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_testing.pkl"
-    testtruefile = "predictions/"+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_truetesting.pkl"
+    testpredfile = model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_testing.pkl"
 
     for ilon,lon in enumerate(AllData.output_lon):
 
         print(lon)
 
-        metricsout = "metrics/"+ model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_seed*.json"
+        metricsout = metrics_dir + model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_seed*.json"
         filelist = glob.glob(metricsout)
 
-        testmetricsout = "metrics/"+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_testing.json"
+        testmetricsout = model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_testing.json"
 
         if len(filelist)!=0:
             logging.info("Models exist, proceeding")
@@ -197,8 +175,6 @@ def main():
             _, _, alltest = AllData.trainvaltest_recordmax_withrecordmax(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,lon)
 
             inputtest, inputtestGMT, outputtest = DataHolder.tensortime_onehot_withrecordmax(alltest,nclasses=2)
-            bestseeds = get_best_files(filelist,n_best)
-            print(bestseeds)
 
             testtrueclass = np.argmax(outputtest.numpy(),axis=1)
             alltesttrue[ilon] = testtrueclass
@@ -208,19 +184,19 @@ def main():
 
             logging.info("Test imbalance is %s:%s", testimbalance[0], testimbalance[1])
 
-        cnn = buildmodel.CNNclassifier(inputtest, inputtestGMT, 2).to('cpu')
-        cnn.load_state_dict(torch.load(model_file,map_location=torch.device('cpu'), weights_only=False))
-        cnn.to(device)
+            for iseed,seed in enumerate(bestseeds):
+                # load the model
 
-            with torch.no_grad():
-                cnn.eval()
-                testpred = cnn(inputtest.to(device), inputtestGMT.to(device)).cpu().numpy()
-                loadfile = "models/"+ model_file_front+ "avgtime_"+ str(outputavgtime)+ "_allssps_lat_"+ str(lat)+ "_lon_"+ str(lon)+ "_seed_"+ str(seed)+ ".pt"
+                loadfile = model_dir + model_file_front+ "avgtime_"+ str(outputavgtime)+ "_allssps_lat_"+ str(lat)+ "_lon_"+ str(lon)+ "_seed_"+ str(seed)+ ".pt"
                 cnn = buildmodel.CNNclassifier(inputtest, inputtestGMT, 2).to('cpu')
                 cnn.load_state_dict(torch.load(loadfile,map_location=torch.device('cpu'), weights_only=False))
                 cnn.to(device)
 
-        alltestpred[ilon,] = testpred[:,1]
+                with torch.no_grad():
+                    cnn.eval()
+                    testpred = cnn(inputtest.to(device), inputtestGMT.to(device)).cpu().numpy()
+
+                alltestpred[ilon,iseed,] = testpred[:,1]
 
         predmean = np.mean(alltestpred[ilon],axis=0) # confidence in positive class
         predclass = np.round(predmean) # prediction class
