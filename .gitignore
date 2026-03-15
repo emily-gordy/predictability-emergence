@@ -14,5 +14,7 @@ archive/*
 work/*
 runInfo/*
 outputs/*
+conda_cache/*
+*.egg-info/*
 !data/inputs.csv
 !data/test_inputs.csv
