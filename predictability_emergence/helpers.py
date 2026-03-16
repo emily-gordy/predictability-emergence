@@ -68,6 +68,6 @@ def get_best_files(filelist,n_best=3):
 
 def brierscore(preds,true):
 
-    bs = np.mean((preds-true)**2)
+    bs = np.mean((preds.squeeze()-true.squeeze())**2)
 
     return bs

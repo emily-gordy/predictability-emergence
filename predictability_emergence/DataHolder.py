@@ -1056,6 +1056,122 @@ class MPIInputOutput_SSPlist:
             ], [
             inputtestfull, inputtestGMTfull, inputtestrecordmaxfull,  outputtestfull] 
 
+    def trainvaltest_histrecordmax_outputonly(self,trainvaltest,experimentera,baselineera,inputlength,outputlength,latsel,lonsel):
+
+        """
+        slice the data to the experiment era and then process the inputs and outputs into ML ready
+        format (as described by the comments). Offset input/output so we are predicting the future then
+        split the inputs/outputs into training/validation/test sets
+        trainvaltest : indices corresponding to members to put in training/validation/testing 
+                        e.g. [np.arange(25),np.arange(25,38),np.arange(38,50)]
+        experimentera : years to grab from the ensemble members e.g. [1960,2080]
+        baselineera : years to use as baseline for a record summer e.g. [1920,1950]
+        inputlength : number of years of SST to use for inout e.g. 10
+        outputlength : how many years into the future we look for an extreme
+        latsel,lonsel : latitude and longitude coordinate of the gridpoint of interest
+        """
+
+        self.inputlength = inputlength
+        self.outputavgtime = outputlength
+
+        allsummer = []
+
+        if latsel<0:
+            self.season = 2
+        else:
+            self.season = 8
+
+        latindsel = np.argmin(np.abs((self.output_lat-latsel)))
+        lonindsel = np.argmin(np.abs((self.output_lon-lonsel)))
+
+        gmthistoricalinds = [gmthistorical[0]-self.timerange[0],gmthistorical[1]-self.timerange[0]]
+
+        historicalinds = [experimentera[0]-self.timerange[0],endhist-self.timerange[0]+self.outputavgtime]
+        
+        # calculate record summers
+        baselineindices = [baselineera[0]-self.timerange[0],baselineera[1]-self.timerange[0]]
+        # print('baseline for temp records is '+ str(baselineindices[0]) + ' ' + str(baselineindices[1]) + ' (not used)')
+
+        recordtemps = np.zeros((len(self.ssplist),self.alloutput[0].shape[0],self.alloutput[0].shape[1]))
+        # recordtempsmag = np.zeros((len(self.ssplist),self.alloutput[0].shape[0],self.alloutput[0].shape[1]))
+
+        for issp,ssp in enumerate(self.ssplist):
+
+            histsel = self.alloutput[issp] # grab ssp
+            histsel = histsel[:,:,latindsel,lonindsel] # grab grid point (member x time)
+
+            baseline = np.max(histsel[:,gmthistoricalinds[0]:gmthistoricalinds[1]],axis=1) # max event that occurs during the historical era 
+            # regionalmean = np.mean(histsel[:,gmthistoricalinds[0]:gmthistoricalinds[1]],axis=1)
+            
+            for iens in range(histsel.shape[0]):
+
+                recordtemps[issp,iens,:] = 1*(histsel[iens,:]>baseline[iens])
+                # recordtempsmag[issp,iens,:] = (baseline[iens]-regionalmean[iens])*np.ones(len(histsel[iens])) # static in each ensemble member
+
+        self.recordtemps = recordtemps
+
+        # OUTPUTS
+        output_recordtemps_hist = recordtemps[0,:,historicalinds[0]:historicalinds[1]]
+        # stack it
+        stackedoutput = stackmatalongdim1(output_recordtemps_hist,self.outputavgtime)
+
+         # cut it
+        cutoutput = stackedoutput[:,self.inputlength:]
+        # control for season
+        if self.season==2:
+            cutoutput = cutoutput[:,1:]
+        # number of extremes in a future period
+        
+        nevents = np.sum(cutoutput,axis=2)
+        outputrecordsummer = 1*(nevents>0) # any number >0 is a yes
+        allsummer.append(nevents)
+
+        # reshape it to 2D and split into train/val/test
+        outputtrainfull = np.reshape(outputrecordsummer[trainvaltest[0]], (len(trainvaltest[0]) * outputrecordsummer.shape[1], 1))
+        outputvalfull = np.reshape(outputrecordsummer[trainvaltest[1]], (len(trainvaltest[1]) * outputrecordsummer.shape[1], 1))
+        outputtestfull = np.reshape(outputrecordsummer[trainvaltest[2]], (len(trainvaltest[2]) * outputrecordsummer.shape[1], 1))   
+        
+        endind = -1*self.outputavgtime+1 # stop code from busting if using 1 year lead
+        if endind == 0:
+            endind = None
+
+        futureinds = [endhist-self.timerange[0]-self.inputlength,endind]
+        # print('indices of future period are ' + str(futureinds[0]) + ' ' + str(futureinds[1]))
+
+        for issp, ssp in enumerate(self.ssplist):
+
+            # finally, work with output data
+            # binary classifier of n year event or not
+
+            output_recordtemps_future = recordtemps[issp,:,futureinds[0]:futureinds[1]]
+            # stack it
+            stackedoutput = stackmatalongdim1(output_recordtemps_future,self.outputavgtime)
+            # cut it
+            cutoutput = stackedoutput[:,self.inputlength:]
+            # control for season
+            if self.season==2:
+                cutoutput = cutoutput[:,1:]
+            # number of extremes in a future period
+
+            nevents = np.sum(cutoutput,axis=2)
+            outputrecordsummer = 1*(nevents>0) # any number >0 is a yes
+
+            allsummer.append(nevents)
+
+            # reshape it to 2D
+
+            summerreshape_train = np.reshape(outputrecordsummer[trainvaltest[0]], (len(trainvaltest[0]) * outputrecordsummer.shape[1], 1))
+            summerreshape_val = np.reshape(outputrecordsummer[trainvaltest[1]], (len(trainvaltest[1]) * outputrecordsummer.shape[1], 1))
+            summerreshape_test = np.reshape(outputrecordsummer[trainvaltest[2]], (len(trainvaltest[2]) * outputrecordsummer.shape[1], 1))
+
+            outputtrainfull = np.append(outputtrainfull,summerreshape_train,axis=0)
+            outputvalfull = np.append(outputvalfull,summerreshape_val,axis=0)
+            outputtestfull = np.append(outputtestfull,summerreshape_test,axis=0)
+
+        self.truesummer = allsummer
+
+        return outputtrainfull, outputvalfull, outputtestfull
+
 
     def trainvaltest_historicalseasonalthreshold(self,trainvaltest,experimentera,baselineera,inputlength,outputlength,tpercentile,latsel,lonsel):
 
@@ -1448,7 +1564,7 @@ class ERA5InputOutput:
 
         chopind = experimentera_obs[0]-self.obstimerange[0]
 
-        print('baseline for gmt is '+ str(gmthistoricalinds[0]) + ' ' + str(gmthistoricalinds[1]))
+        # print('baseline for gmt is '+ str(gmthistoricalinds[0]) + ' ' + str(gmthistoricalinds[1]))
 
         # historicalinds = np.asarray(historicalera)-self.timerange[0]
 
@@ -1494,7 +1610,7 @@ class ERA5InputOutput:
         avggmt = np.mean(cutgmt,axis=1,keepdims=True)
 
         baselineindices = [baselineera_obs[0]-self.obstimerange[0],baselineera_obs[1]-self.obstimerange[0]]
-        print('baseline for temp records is '+ str(baselineindices[0]) + ' ' + str(baselineindices[1]))
+        # print('baseline for temp records is '+ str(baselineindices[0]) + ' ' + str(baselineindices[1]))
 
         histsel = self.alloutput[:,latindsel,lonindsel]
 
@@ -1542,6 +1658,113 @@ class ERA5InputOutput:
 
         return anominput,avggmt,maxpriorrecord,outputrecordsummer       
 
+    def obs_histrecordmax(self,experimentera_obs=[1960,2025],baselineera_obs=[1940,1960],inputlength=10,outputlength=10,latsel=0,lonsel=0):
+        
+        self.inputlength = inputlength
+        self.outputavgtime = outputlength
+
+        allsummer = []
+
+        if latsel<0:
+            self.season = 2
+        else:
+            self.season = 8
+
+        latindsel = np.argmin(np.abs((self.output_lat-latsel)))
+        lonindsel = np.argmin(np.abs((self.output_lon-lonsel)))
+
+        gmthistoricalinds = [gmthistorical[0]-self.obstimerange[0],gmthistorical[1]-self.obstimerange[0]]
+
+        chopind = experimentera_obs[0]-self.obstimerange[0]
+
+        # print('baseline for gmt is '+ str(gmthistoricalinds[0]) + ' ' + str(gmthistoricalinds[1]))
+
+        # historicalinds = np.asarray(historicalera)-self.timerange[0]
+
+        # timevecfull = np.arange(self.timerange[0], self.timerange[1]+1)
+
+        inputdims = self.allinput[0].shape[-2:]
+        
+        input_annualmean = self.allinput 
+        input_annualmean = input_annualmean[chopind:] # chop off the baseline years
+
+        # first work with gridded input data, 
+        # stack it
+        stackedinput = stackobs(input_annualmean,self.inputlength)
+        # cut it
+        cutinput = stackedinput[:-1*(self.outputavgtime)] # time x lat x lon
+        self.cutinput = cutinput
+        # control for season
+        if self.season==2:
+            cutinput = cutinput[:-1] # time x lat x lon
+        # remove mean from sample dimension
+        inputmean = np.mean(cutinput,axis=1,keepdims=True)
+        anominput = cutinput-inputmean
+        # nan out land
+        landmask = np.isnan(anominput[0,0])
+        anominput[:,:,landmask] = 0
+
+        gmt = self.allGMT
+
+        # now work with GMT data
+        # make each sample anomaly from historical era mean
+        inputgmtmean = np.mean(gmt[gmthistoricalinds[0]:gmthistoricalinds[1]]) # just a number
+
+        inputgmtanom = gmt-inputgmtmean
+        inputgmtanom = inputgmtanom[chopind:]
+        # stack it
+        stackedgmt = stackobs(inputgmtanom,self.inputlength)
+        # cut it
+        cutgmt = stackedgmt[:-1*(self.outputavgtime)]
+        # control for season
+        if self.season==2:
+            cutgmt = cutgmt[:-1]
+        # average over sample dimension but keep that dimension
+        avggmt = np.mean(cutgmt,axis=1,keepdims=True)
+
+        baselineindices = [baselineera_obs[0]-self.obstimerange[0],baselineera_obs[1]-self.obstimerange[0]]
+        # print('baseline for temp records is '+ str(baselineindices[0]) + ' ' + str(baselineindices[1]))
+
+        histsel = self.alloutput[:,latindsel,lonindsel]
+
+        baseline = np.max(histsel[gmthistoricalinds[0]:gmthistoricalinds[1]]) # max event that occurs during the historical era 
+        regionalmean = np.mean(histsel[gmthistoricalinds[0]:gmthistoricalinds[1]])
+
+        outputsummer = histsel[chopind:]
+        
+        recordtemps = 1*(outputsummer>baseline)
+        recordtempsmag = (baseline-regionalmean)*np.ones(len(outputsummer)) # static in each ensemble member
+
+        stackrecordsmag = stackobs(recordtempsmag,self.inputlength)
+        cutstackrecord = stackrecordsmag[:-1*(self.outputavgtime)]
+
+        if self.season==2:
+            cutstackrecord = cutstackrecord[:-1]
+        
+        maxpriorrecord = np.max(cutstackrecord,axis=1,keepdims=True)
+
+        self.outputsummer = outputsummer
+        self.recordtemps = recordtemps
+
+        # finally, work with output data
+        # binary classifier of record summer occurs or not
+
+        # stack it
+        stackedoutput = stackobs(recordtemps,self.outputavgtime)
+
+         # cut it
+        cutoutput = stackedoutput[self.inputlength:]
+        # control for season
+        if self.season==2:
+            cutoutput = cutoutput[1:]
+        # number of extremes in a future period
+        
+        nevents = np.sum(cutoutput,axis=1)
+        outputrecordsummer = 1*(nevents>0) # any number >0 is a yes
+
+        self.allevents = nevents
+
+        return anominput,avggmt,maxpriorrecord,outputrecordsummer       
 
 def tensortime_multihot(listofmatrices):
 
