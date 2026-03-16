@@ -71,6 +71,7 @@ def main():
     parser = argparse.ArgumentParser(prog="evalnn")
     # main parameters
     parser.add_argument("--lat", type=int, default=0)
+    parser.add_argument("--n_best", type=int, default=3)
     # just in case parameters
     parser.add_argument("--outputavgtime", type=int, default=5)
     parser.add_argument("--ssps", nargs="+", default=["126", "245", "370", "585"])
@@ -96,6 +97,7 @@ def main():
     args = parser.parse_args()
 
     lat = args.lat
+    n_best = args.n_best
     outputavgtime = args.outputavgtime
     ssp_list = args.ssps
     experiment_era = args.experiment_era
