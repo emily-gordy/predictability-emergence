@@ -17,3 +17,5 @@ runInfo/*
 outputs/*
 !data/inputs.csv
 !data/test_inputs.csv
+lr_models/*
+figs/*

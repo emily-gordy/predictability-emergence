@@ -33,7 +33,7 @@ def main():
     parser.add_argument("--output_var", type=str, default="tas")
     parser.add_argument("--n_train", type=int, default=25)
     parser.add_argument("--n_val", type=int, default=13)
-    parser.add_argument("--test", nargs=2, type=int, default=[38, 49])
+    parser.add_argument("--test", nargs=2, type=int, default=[38, 50])
     parser.add_argument("--data_dir", type=str, default="../data")
     parser.add_argument("--output_dir", type=str, default="predictions/")
 
@@ -53,7 +53,7 @@ def main():
     output_var = args.output_var
     n_train = args.n_train
     n_val = args.n_val
-    test = np.array(args.test)
+    test = np.arange(args.test[0],args.test[1])
     data_dir = args.data_dir
     output_dir = args.output_dir
 
