@@ -1,5 +1,4 @@
 process evalnn {
-    conda "${moduleDir}/environment.yml"
 
     input:
     // path 

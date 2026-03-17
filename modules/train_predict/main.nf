@@ -1,5 +1,4 @@
 process train_predict {
-    conda "${moduleDir}/environment.yml"
 
     input:
     tuple val(id), val(lat), val(lon), val(seed)
