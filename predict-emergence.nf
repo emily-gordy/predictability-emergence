@@ -1,6 +1,5 @@
 include { MODEL_TRAINING } from './subworkflows/model_training/main.nf'
 
-
 /**
  * Strict integer parser for string fields (with trim).
  * Throws IllegalArgumentException with a clear field name.
@@ -103,7 +102,6 @@ Map parseId(String id, boolean allowLegacyUnpadded = false) {
 
     return [ lat: lat, lon: lon, seed: seed ]
 }
-
 
 workflow {
 
