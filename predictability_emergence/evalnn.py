@@ -22,6 +22,7 @@ import os
 import pickle
 import argparse
 import logging
+import re
 #%% 
 
 imp.reload(DataHolder)
@@ -174,7 +175,7 @@ def main():
 
     alltestpred = np.zeros((len(AllData.output_lon),n_best,len(inputtestGMT)))+np.nan
     alltesttrue = np.zeros((len(AllData.output_lon),len(inputtestGMT)))+np.nan
-    testpredfile = model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_testing.pkl"
+    testpredfile = model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_testing"
 
     for ilon,lon in enumerate(AllData.output_lon):
 
@@ -200,10 +201,13 @@ def main():
 
             logging.info("Test imbalance is %s:%s", testimbalance[0], testimbalance[1])
 
-            for iseed,seed in enumerate(bestseeds):
-                # load the model
+            iseed = 0
 
-                loadfile = model_dir + model_file_front+ "avgtime_"+ str(outputavgtime)+ "_allssps_lat_"+ str(lat)+ "_lon_"+ str(lon)+ "_seed_"+ str(seed)+ ".pt"
+            for iseed,file in enumerate(filelist):
+                # load the model
+                loadfile = file.replace(metrics_dir, model_dir)
+                loadfile = loadfile.removesuffix(".json") 
+                loadfile = loadfile + ".pt"
                 cnn = buildmodel.CNNclassifier(inputtest, inputtestGMT, 2).to('cpu')
                 cnn.load_state_dict(torch.load(loadfile,map_location=torch.device('cpu'), weights_only=False))
                 cnn.to(device)
@@ -213,6 +217,8 @@ def main():
                     testpred = cnn(inputtest.to(device), inputtestGMT.to(device)).cpu().numpy()
 
                 alltestpred[ilon,iseed,] = testpred[:,1]
+                
+                iseed += 1
 
         predmean = np.mean(alltestpred[ilon],axis=0) # confidence in positive class
         predclass = np.round(predmean) # prediction class
@@ -222,7 +228,7 @@ def main():
 
         save_metrics(accuracy, testimbalance, testmetricsout)
 
-    np.savetxt(alltestfile, alltestpred, delimiter = ',')
+    np.save(testpredfile, alltestpred)
 
 # %%
 if __name__ == "__main__":
