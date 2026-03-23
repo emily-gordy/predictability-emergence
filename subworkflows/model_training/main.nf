@@ -49,7 +49,7 @@ workflow MODEL_TRAINING {
             // Emit in your original tuple shape: [id, lat, lon, seed, score, metrics, model]
             top.collect { it -> [ it.id, it.lat, it.lon, it.seed, it.score, it.metrics, it.model ] }
         }
-        .view { v -> "${v[3]} is a top model for ${v[1]}/${v[2]}"}
+        .view { v -> "${v[3]} is a top model for ${v[1]}/${v[2]}: ${v[0]}"}
 
 
     // add evalnn step
