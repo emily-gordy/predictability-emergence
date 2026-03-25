@@ -6,8 +6,8 @@ process train_predict {
 
     output:
     // tuple val(lat), val(lon), val(seed), stdout, emit: score
-    tuple val(id), val(lat), val(lon), val(seed), path("MPI_recordtemp_avgtime_${params.outputavgtime}_allssps_lat_${lat}_lon_${lon}_seed_${seed}.json"), emit: metrics
-    tuple val(id), val(lat), val(lon), val(seed), path("MPI_recordtemp_avgtime_${params.outputavgtime}_allssps_lat_${lat}_lon_${lon}_seed_${seed}.pt"), emit: model
+    tuple val(id), val(lat), val(lon), val(seed), path("MPI_recordtemp_avgtime_${params.outputavgtime}_allssps_lat_${lat}_lon_${lon}_seed_${seed}.json"), optional: true, emit: metrics
+    tuple val(id), val(lat), val(lon), val(seed), path("MPI_recordtemp_avgtime_${params.outputavgtime}_allssps_lat_${lat}_lon_${lon}_seed_${seed}.pt"), optional: true, emit: model
 
     script:
     experiment_era = "${params.experiment_start} ${params.experiment_end}"
