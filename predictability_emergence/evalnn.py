@@ -187,6 +187,13 @@ def main():
 
     alltestpred = np.zeros((len(AllData.output_lon),n_best,len(inputtestGMT)))+np.nan
     alltesttrue = np.zeros((len(AllData.output_lon),len(inputtestGMT)))+np.nan
+
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+    except OSError as e:
+        print(f"Error creating directory {output_dir}: {e}")
+
+
     testpredfile = "predictions/"+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_testing.pkl"
     testtruefile = "predictions/"+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_truetesting.pkl"
 
