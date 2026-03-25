@@ -16,4 +16,4 @@ conda activate /nesi/nobackup/nesi99999/jreeve/predictability-emergence/ml-env
 
 export NFX_OPTS="-Xms=512m -Xmx=8g"
 
-nextflow run predict-emergence.nf -profile test,mahuika
+nextflow run predict-emergence.nf -profile test_full,mahuika
