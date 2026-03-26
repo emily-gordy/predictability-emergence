@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import argparse
 import logging
+import os
 
 def main():
     # setting up logging
@@ -62,6 +63,11 @@ def main():
     test = np.arange(args.test[0],args.test[1])
     data_dir = args.data_dir
     output_dir = args.output_dir
+
+    try:
+        os.makedirs(output_dir, exist_ok=True)
+    except OSError as e:
+        print(f"Error creating directory {output_dir}: {e}")
 
     # make parameter dictionary to be passed to DataHolder
     params = {
