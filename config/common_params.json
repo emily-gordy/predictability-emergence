@@ -1,0 +1,18 @@
+{
+  "outputavgtime": 5,
+  "ssps": ["126", "245", "370", "585"],
+  "experiment_era": [1950, 2100],
+  "baseline_era": [1900, 1950],
+  "input_length": 10,
+  "in_res": 4,
+  "out_res": 10,
+  "time_range": [1900, 2100],
+  "file_front": "MPI_",
+  "model_file_front": "MPI_recordtemp_",
+  "input_var": "tos",
+  "output_var": "tas",
+  "n_train": 25,
+  "n_val": 13,
+  "test": [38, 50],
+  "data_dir": "../data/"
+}
