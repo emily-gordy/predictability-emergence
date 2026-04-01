@@ -1,6 +1,6 @@
 #!/bin/bash -e
 
-#SBATCH --partition		milan
+#SBATCH --partition		milan,genoa
 #SBATCH --job-name              pred-em-nextflow
 #SBATCH --output                /nesi/nobackup/uoa04506/job_output/%x-%j.out
 #SBATCH --time                  01:00:00     # required walltime
@@ -16,4 +16,4 @@ conda activate ml-env
 
 export NFX_OPTS="-Xms=512m -Xmx=8g"
 
-nextflow run predict-emergence.nf -profile test,mahuika
+nextflow run predict-emergence.nf -profile test_full,mahuika
