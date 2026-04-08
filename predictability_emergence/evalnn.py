@@ -175,7 +175,7 @@ def main():
 
     alltestpred = np.zeros((len(AllData.output_lon),n_best,len(inputtestGMT)))+np.nan
     alltesttrue = np.zeros((len(AllData.output_lon),len(inputtestGMT)))+np.nan
-    testpredfile = model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_testing"
+    testpredfile = output_dir+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_testing"
 
     for ilon,lon in enumerate(AllData.output_lon):
 
@@ -184,7 +184,7 @@ def main():
         metricsout = metrics_dir + model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_seed*.json"
         filelist = glob.glob(metricsout)
 
-        testmetricsout = model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_testing.json"
+        testmetricsout = output_dir+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_testing.json"
 
         if len(filelist)!=0:
             logging.info("Models exist, proceeding")
@@ -201,9 +201,8 @@ def main():
 
             logging.info("Test imbalance is %s:%s", testimbalance[0], testimbalance[1])
 
-            iseed = 0
-
-            for iseed,file in enumerate(filelist):
+            for iseed in range(n_best):
+                file = filelist[iseed]
                 # load the model
                 loadfile = file.replace(metrics_dir, model_dir)
                 loadfile = loadfile.removesuffix(".json") 
@@ -217,8 +216,6 @@ def main():
                     testpred = cnn(inputtest.to(device), inputtestGMT.to(device)).cpu().numpy()
 
                 alltestpred[ilon,iseed,] = testpred[:,1]
-                
-                iseed += 1
 
         predmean = np.mean(alltestpred[ilon],axis=0) # confidence in positive class
         predclass = np.round(predmean) # prediction class
