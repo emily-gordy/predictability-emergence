@@ -109,7 +109,7 @@ workflow {
     input_ch = channel.fromPath(params.input)
                 .splitCsv( header: true )
                 .map {
-                    row -> [id:makeId(row.LAT,row.LON,row.SEED), lon:row.LON, lat:row.LAT, seed:row.SEED]
+                    row -> [id:makeId(row.LAT,row.LON,row.SEED), lat:row.LAT, lon:row.LON, seed:row.SEED]
                 }
                 // .view() // View the input channel to verify the data is being read correctly
 
