@@ -22,6 +22,7 @@ import os
 import pickle
 import argparse
 import logging
+import re
 #%% 
 
 imp.reload(DataHolder)
@@ -36,27 +37,6 @@ def save_metrics(accuracy, class_imbalance, json_file):
     
     with open(json_file, 'w') as f:
         json.dump(result, f, indent=2)
-
-def get_best_files(filelist,n_best):
-    results = []
-    for file in filelist:
-        with open(file, 'r') as f:
-            results.append(json.load(f))
-    
-    allaccs = np.asarray([results[i]['val_accuracy'] for i in range(len(filelist))])
-    allnulls = np.asarray([results[i]['val_class_imbalance'] for i in range(len(filelist))])
-    allseeds = np.asarray([results[i]['seed'] for i in range(len(filelist))])
-    bestseedinds = np.argsort(allaccs-allnulls)[-n_best:]
-
-    # print(bestseedinds)
-
-    bestseeds = allseeds[bestseedinds]
-    # bestfiles = []
-    # for bestind in bestseedinds:
-    #     bestfile = filelist[bestind]
-    #     bestfiles.append(bestfile)
-
-    return bestseeds
 
 def confacc(predclass,trueclass,predconf):
 
@@ -90,7 +70,7 @@ def main():
     # logging.getLogger().addHandler(console)
 
     # setting up parser
-    parser = argparse.ArgumentParser(prog="trainnn")
+    parser = argparse.ArgumentParser(prog="evalnn")
     # main parameters
     parser.add_argument("--lat", type=int, default=0)
     parser.add_argument("--n_best", type=int, default=3)
@@ -125,6 +105,9 @@ def main():
     parser.add_argument("--momentum", type=float, default=0.5)
 
     parser.add_argument("--data_dir", type=str, default="../data/")
+    parser.add_argument("--output_dir", type=str, default="predictions/")
+    parser.add_argument("--model_dir", type=str, default="models/")
+    parser.add_argument("--metrics_dir", type=str, default="metrics/")
 
     args = commonConfig.apply_common_config_and_parse_args(parser)
 
@@ -146,13 +129,10 @@ def main():
     n_val = args.n_val
     test = np.arange(args.test[0],args.test[1])
     batch_size = args.batch_size
-    lr = args.lr
-    # ridge_pen = args.ridge_pen
-    lr_patience = args.lr_patience
-    early_stopping_patience = args.early_stopping_patience
-    epochs = args.epochs
-    momentum = args.momentum
     data_dir = args.data_dir
+    output_dir = args.output_dir
+    model_dir = args.model_dir
+    metrics_dir = args.metrics_dir
 
     # make parameter dictionary to be passed to DataHolder
     params = {
@@ -195,34 +175,25 @@ def main():
 
     alltestpred = np.zeros((len(AllData.output_lon),n_best,len(inputtestGMT)))+np.nan
     alltesttrue = np.zeros((len(AllData.output_lon),len(inputtestGMT)))+np.nan
-
-    output_dir = 'predictions/'
-    try:
-        os.makedirs(output_dir, exist_ok=True)
-    except OSError as e:
-        print(f"Error creating directory {output_dir}: {e}")
-
-
-    testpredfile = output_dir + model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_testing.pkl"
-    testtruefile = output_dir + model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_truetesting.pkl"
+    testpredfile = output_dir+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_testing"
 
     for ilon,lon in enumerate(AllData.output_lon):
 
         print(lon)
 
-        metricsout = "metrics/"+ model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_seed*.json"
+        metricsout = metrics_dir + model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_seed*.json"
         filelist = glob.glob(metricsout)
 
-        testmetricsout = "metrics/"+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_testing.json"
+        testmetricsout = output_dir+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_testing.json"
 
-        if len(filelist)!=0:
+        if len(filelist)==0:
+            raise ValueError("No models found for this lon/lat")
+        else:
             logging.info("Models exist, proceeding")
 
             _, _, alltest = AllData.trainvaltest_recordmax_withrecordmax(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,lon)
 
             inputtest, inputtestGMT, outputtest = DataHolder.tensortime_onehot_withrecordmax(alltest,nclasses=2)
-            bestseeds = get_best_files(filelist,n_best)
-            print(bestseeds)
 
             testtrueclass = np.argmax(outputtest.numpy(),axis=1)
             alltesttrue[ilon] = testtrueclass
@@ -232,10 +203,12 @@ def main():
 
             logging.info("Test imbalance is %s:%s", testimbalance[0], testimbalance[1])
 
-            for iseed,seed in enumerate(bestseeds):
+            for iseed in range(n_best):
+                file = filelist[iseed]
                 # load the model
-
-                loadfile = "models/"+ model_file_front+ "avgtime_"+ str(outputavgtime)+ "_allssps_lat_"+ str(lat)+ "_lon_"+ str(lon)+ "_seed_"+ str(seed)+ ".pt"
+                loadfile = file.replace(metrics_dir, model_dir)
+                loadfile = loadfile.removesuffix(".json") 
+                loadfile = loadfile + ".pt"
                 cnn = buildmodel.CNNclassifier(inputtest, inputtestGMT, 2).to('cpu')
                 cnn.load_state_dict(torch.load(loadfile,map_location=torch.device('cpu'), weights_only=False))
                 cnn.to(device)
@@ -246,19 +219,15 @@ def main():
 
                 alltestpred[ilon,iseed,] = testpred[:,1]
 
-            predmean = np.mean(alltestpred[ilon],axis=0) # confidence in positive class
-            predclass = np.round(predmean) # prediction class
-            predconf = np.where(predmean<0.5,1-predmean,predmean)
+        predmean = np.mean(alltestpred[ilon],axis=0) # confidence in positive class
+        predclass = np.round(predmean) # prediction class
+        predconf = np.where(predmean<0.5,1-predmean,predmean)
 
-            accuracy = confacc(predclass,testtrueclass,predconf)
+        accuracy = confacc(predclass,testtrueclass,predconf)
 
-            save_metrics(accuracy, testimbalance, testmetricsout)
+        save_metrics(accuracy, testimbalance, testmetricsout)
 
-    with open(testpredfile,'wb') as f:
-        pickle.dump(alltestpred,f)
-
-    with open(testtruefile,'wb') as f:
-        pickle.dump(alltesttrue,f)
+    np.save(testpredfile, alltestpred)
 
 # %%
 if __name__ == "__main__":
