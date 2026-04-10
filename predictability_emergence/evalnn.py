@@ -186,7 +186,9 @@ def main():
 
         testmetricsout = output_dir+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_testing.json"
 
-        if len(filelist)!=0:
+        if len(filelist)==0:
+            raise ValueError("No models found for this lon/lat")
+        else:
             logging.info("Models exist, proceeding")
 
             _, _, alltest = AllData.trainvaltest_recordmax_withrecordmax(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,lon)
