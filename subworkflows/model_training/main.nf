@@ -1,4 +1,5 @@
 include { train_predict } from '../../modules/train_predict/main.nf'
+// include { basepred } from '../../modules/basepred/main.nf'
 // include { evalnn } from '../../modules/evalnn/main.nf'
 
 workflow MODEL_TRAINING {
@@ -7,14 +8,20 @@ workflow MODEL_TRAINING {
 
     main:
     train_predict(input_ch)
+    basepred(input_ch)
 
+    // Reorganizing the output from train_predict. train_predict produces two outputs:
+    // out.model and out.metrics. Each of these is a tuple: id, lat, lon, seed and a file.
+    // Here we group id, lat, lon, seed into one tuple. 
     models = train_predict.out.model
             .map {
                 id, lat, lon, seed, file ->
                 [[id:id, lat:lat, lon:lon, seed:seed], file]
             }
 
-    // metrics channel adjusted to group by (lat, lon) and pick top N within each group
+    // metrics channel adjusted to group by (lat, lon) and pick top N within each group. We're 
+    // apply the same grouping as ablove but in addition we generate an addition "score" field,
+    // which allows us to rank the models.
     metrics = train_predict.out.metrics
         .map { id, lat, lon, seed, file ->
             // extract score from metrics JSON (same as your code)
