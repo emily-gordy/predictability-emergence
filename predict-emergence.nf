@@ -1,4 +1,5 @@
 include { MODEL_TRAINING } from './subworkflows/model_training/main.nf'
+include { BASEPRED } from './modules/basepred/main.nf'
 
 /**
  * Strict integer parser for string fields (with trim).
@@ -114,11 +115,12 @@ workflow {
                 // .view() // View the input channel to verify the data is being read correctly
 
     MODEL_TRAINING(input_ch)
+    BASEPRED()
 
     publish: // Specify the outputs you want published into the output directory
         model = MODEL_TRAINING.out.model
         metrics = MODEL_TRAINING.out.metrics
-        // baseline_pred = MODEL_TRAINING.out.baseline_pred
+        baseline_pred = BASEPRED.out.baseline_prediction
         // model_pred = MODEL_TRAINING.out.model_pred
 }
 
@@ -131,9 +133,9 @@ output {
         path 'metrics'
     }
 
-    // baseline_pred { // Specify the output directory for the baseline predictions
-    //     path 'predictions'
-    // }
+    baseline_pred { // Specify the output directory for the baseline predictions
+        path 'predictions'
+    }
 
     // model_pred { // Specify the output directory for the model predictions
     //     path 'predictions'

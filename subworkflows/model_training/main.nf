@@ -8,7 +8,7 @@ workflow MODEL_TRAINING {
 
     main:
     train_predict(input_ch)
-    basepred(input_ch)
+    //basepred(input_ch)
 
     // Reorganizing the output from train_predict. train_predict produces two outputs:
     // out.model and out.metrics. Each of these is a tuple: id, lat, lon, seed and a file.
