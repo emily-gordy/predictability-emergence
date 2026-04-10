@@ -74,6 +74,18 @@ ls work/c9/f4eb847fb16541735061ac92e99669/.command.*
 ```
 to find stderr and other output messages.
 
+## Adding a new task/process
+
+Start by writing a module, e.g. under `modules/basepred/main.nf`. The process takes an input and produces an output
+with a script. (In the case of `basepred`, there is no input and that section can be left out.) The ouput can be 
+a path.
+
+Decide whether the new process should be part of the subworkflow or the main workflow. If in the main workflow section
+then: (1) include the module (top of the file) and add the call in the workflow section. Nextflow will figure out which
+process can be run form the input/output. Note the `publish` field and `output` section, these determine what needs to 
+be saved and where.
+
+
 ## Running on Mahuika
 
 `module purge && module load Nextflow/25.10.2`
@@ -158,6 +170,7 @@ outputs
 #### The Science!
 
 I am currently working in the two jupyter notebooks `FirstPredict.ipynb` and `ObsPredict.ipynb` which have some descriptions about how I am using the outputs from the trained NNs and the testing predictions.
+
 
 ### questions for Emily
 
