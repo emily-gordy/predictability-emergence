@@ -181,13 +181,13 @@ def main():
 
         print(lon)
 
-        metricsout = metrics_dir + model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_seed*.json"
+        metricsout = metrics_dir + '/' + model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_seed*.json"
         filelist = glob.glob(metricsout)
 
-        testmetricsout = output_dir+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_testing.json"
+        testmetricsout = output_dir+ '/' + model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_testing.json"
 
         if len(filelist)==0:
-            raise ValueError("No models found for this lon/lat")
+            print(f"Warning: No models found for lon = {lon} and lat = {lat}")
         else:
             logging.info("Models exist, proceeding")
 
@@ -219,13 +219,13 @@ def main():
 
                 alltestpred[ilon,iseed,] = testpred[:,1]
 
-        predmean = np.mean(alltestpred[ilon],axis=0) # confidence in positive class
-        predclass = np.round(predmean) # prediction class
-        predconf = np.where(predmean<0.5,1-predmean,predmean)
+            predmean = np.mean(alltestpred[ilon],axis=0) # confidence in positive class
+            predclass = np.round(predmean) # prediction class
+            predconf = np.where(predmean<0.5,1-predmean,predmean)
 
-        accuracy = confacc(predclass,testtrueclass,predconf)
+            accuracy = confacc(predclass,testtrueclass,predconf)
 
-        save_metrics(accuracy, testimbalance, testmetricsout)
+            save_metrics(accuracy, testimbalance, testmetricsout)
 
     np.save(testpredfile, alltestpred)
 
