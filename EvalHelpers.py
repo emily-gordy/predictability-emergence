@@ -58,6 +58,7 @@ class RecordMax:
         self.ssplistplot = ["hist"]+ self.ssplist 
         self.experiment_era_obs = analysisparams["experiment_era_obs"]
         self.baselineera_obs = analysisparams["baselineera_obs"]
+        self.obstimerange = analysisparams["obstimerange"]
 
     def logistic_regression(self,AllData,sspkeep):
         
@@ -105,11 +106,15 @@ class RecordMax:
                 inputssptest = np.round((inputssptest.squeeze()+0.2)*10)
 
                 regenerate = True
-                
+
+            lr_pred_file = "predictions/"+self.modelfilefront+"avgtime_"+str(self.outputavgtime)+"_allssps_lat_"+str(latsel)+"_logisticregression.pkl"
+            if len(glob.glob(lr_pred_file))==0:
+                lr_preds = np.empty((2,36,len(inputtestGMT.squeeze()))) + np.nan
+
             for ilonsel,lonsel in enumerate(AllData.output_lon):
 
                 outputtrainall, _, outputtestall = AllData.trainvaltest_recordmax_outputonly(self.trainvaltest,self.experiment_era,self.baselineera,self.inputlength,self.outputavgtime,latsel,lonsel)
-                
+
                 if (np.mean(outputtrainall)!=0) & (np.mean(outputtrainall)!=1):
 
                     #grab hist only
@@ -182,9 +187,17 @@ class RecordMax:
 
                             lr_coeffs[ilatsel,ilonsel] = model.coef_[0]
 
+                    if len(glob.glob(lr_pred_file))==0:
+                        lr_preds[0,ilonsel] = all_lr_pred.squeeze()[1:]
+                        lr_preds[1,ilonsel] = all_lr_true.squeeze()[1:]
+
                     lr_accuracy_all[ilatsel,ilonsel] = helpers.confacc(np.round(all_lr_pred.squeeze())[1:],all_lr_true.squeeze()[1:],all_lr_conf[1:])
                     bs_lr_all[ilatsel,ilonsel] = helpers.brierscore(all_lr_pred.squeeze()[1:],all_lr_true.squeeze()[1:])
-        
+                
+            if len(glob.glob(lr_pred_file))==0:
+                with open(lr_pred_file,'wb') as f:
+                    pickle.dump(lr_preds,f)
+
         self.lr_coeffs = lr_coeffs
 
         return lr_accuracy_all, bs_lr_all, lr_first_correct
@@ -273,6 +286,11 @@ class RecordMax:
     def obs_evaluation(self,AllObs):
         
         n_best = 3
+
+        chopind = self.experiment_era_obs[0]-self.obstimerange[0]
+        lenSH = len(AllObs.allGMT.squeeze())-self.outputavgtime-self.inputlength-chopind
+        lenNH = len(AllObs.allGMT.squeeze())-self.outputavgtime-self.inputlength-chopind+1
+
         lr_obs_accuracy = np.empty((len(AllObs.output_lat),len(AllObs.output_lon)))+np.nan
         cnn_obs_accuracy = np.empty((len(AllObs.output_lat),len(AllObs.output_lon)))+np.nan
 
@@ -287,6 +305,15 @@ class RecordMax:
 
         lr_tp = np.empty((len(AllObs.output_lat),len(AllObs.output_lon)))+np.nan
         lr_fp = np.empty((len(AllObs.output_lat),len(AllObs.output_lon)))+np.nan
+
+        cnn_precision_positiveclass = np.empty((len(AllObs.output_lat),len(AllObs.output_lon)))+np.nan
+        lr_precision_positiveclass = np.empty((len(AllObs.output_lat),len(AllObs.output_lon)))+np.nan
+
+        cnn_SH_pred = np.empty((int(len(AllObs.output_lat)/2),len(AllObs.output_lon),lenSH))+np.nan
+        cnn_NH_pred = np.empty((int(len(AllObs.output_lat)/2),len(AllObs.output_lon),lenNH))+np.nan
+
+        SH_true = np.empty((int(len(AllObs.output_lat)/2),len(AllObs.output_lon),lenSH))+np.nan
+        NH_true = np.empty((int(len(AllObs.output_lat)/2),len(AllObs.output_lon),lenNH))+np.nan
 
         for ilat,lat in enumerate(AllObs.output_lat):
             for ilon,lon in enumerate(AllObs.output_lon):
@@ -324,6 +351,12 @@ class RecordMax:
 
                         obspredavg = np.mean(obspredall,axis=0)
                         obspredclass = np.round(obspredavg)
+                        if lat<0:
+                            cnn_SH_pred[ilat,ilon,:] = obspredavg
+                            SH_true[ilat,ilon,:] = obsoutput
+                        else:
+                            cnn_NH_pred[ilat-9,ilon,:] = obspredavg
+                            NH_true[ilat-9,ilon,:] = obsoutput
 
                         cnn_obs_accuracy[ilat,ilon] = np.mean(obsoutput==obspredclass)
                         cnn_obs_bs[ilat,ilon] = helpers.brierscore(obspredavg.squeeze(),obsoutput.squeeze())
@@ -331,6 +364,8 @@ class RecordMax:
 
                         cnn_tp[ilat,ilon] = np.sum(1*((obspredclass==obsoutput)&(obspredclass==1)))
                         cnn_fp[ilat,ilon] = np.sum(1*((obspredclass!=obsoutput)&(obspredclass==1)))
+
+                        cnn_precision_positiveclass[ilat,ilon] = np.sum(1*((obspredclass==obsoutput)&(obspredclass==1)))/np.sum(1*(obspredclass==1))
 
                         lrmodelload = "lr_models/"+self.modelfilefront + "LogisticRegression_avgtime_"+str(self.outputavgtime)+"_lat_"+str(lat)+"_lon_"+str(lon)+".joblib"
                         lrmodel = joblib.load(lrmodelload)
@@ -345,13 +380,49 @@ class RecordMax:
                         lr_tp[ilat,ilon] = np.sum(1*((lrpredclass==obsoutput)&(lrpredclass==1)))
                         lr_fp[ilat,ilon] = np.sum(1*((lrpredclass!=obsoutput)&(lrpredclass==1)))
 
+                        lr_precision_positiveclass[ilat,ilon] = np.sum(1*((lrpredclass==obsoutput)&(lrpredclass==1)))/np.sum(1*(lrpredclass==1))
+
         self.cnn_tp = cnn_tp
         self.cnn_fp = cnn_fp
 
         self.lr_tp = lr_tp
         self.lr_fp = lr_fp
 
+        self.lr_precision = lr_precision_positiveclass
+        self.cnn_precision = cnn_precision_positiveclass
+
+        self.cnn_SH_pred = cnn_SH_pred
+        self.cnn_NH_pred = cnn_NH_pred
+
+        self.NH_true = NH_true
+        self.SH_true = SH_true
+
         return [cnn_obs_accuracy, cnn_obs_bs, cnn_obs_firstpositive],[lr_obs_accuracy, lr_obs_bs, lr_obs_firstpositive]
+
+
+    # def moreobsthings(self,AllObs):
+
+    #     lr_obs_accuracy = np.empty((len(AllObs.output_lat),len(AllObs.output_lon)))+np.nan
+    #     cnn_obs_accuracy = np.empty((len(AllObs.output_lat),len(AllObs.output_lon)))+np.nan
+
+    #     for ilat,lat in enumerate(AllObs.output_lat):
+    #         for ilon,lon in enumerate(AllObs.output_lon):
+
+    #             metricsout = "metrics/"+self.modelfilefront+"avgtime_"+str(self.outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_seed*.json"
+    #             filelist = glob.glob(metricsout)
+
+    #             if len(filelist)!=0:
+    #                 bestseeds = helpers.get_best_files(filelist,n_best)
+
+    #                 obsinput,obsinputgmt,obsinputpriorrecord,obsoutput = AllObs.obs_recordmax_withrecordmax(self.experiment_era_obs,self.baselineera_obs,self.inputlength,self.outputavgtime,lat,lon)
+
+    #                 obsinput_t = torch.tensor(obsinput,dtype=torch.float32)
+    #                 obsinputgmt_t = torch.tensor(obsinputgmt,dtype=torch.float32)
+    #                 obsinputpriorrecord_t = torch.tensor(obsinputpriorrecord,dtype=torch.float32)
+    #                 obsinputvectors_t = torch.cat((obsinputgmt_t,obsinputpriorrecord_t),axis=-1)
+
+    #                 obspredall = np.empty((3,len(obsinputgmt)))
+
 
 
     def GridPointSel(self,AllData,latsel,lonsel):
@@ -473,7 +544,11 @@ class HistoricMax:
                 inputssptest = np.round((inputssptest.squeeze()+0.2)*10)
 
                 regenerate = True
-                
+
+            lr_pred_file = "predictions/"+self.modelfilefront+"avgtime_"+str(self.outputavgtime)+"_allssps_lat_"+str(latsel)+"_logisticregression.pkl"
+            if len(glob.glob(lr_pred_file))==0:
+                lr_preds = np.empty((2,36,len(inputtestGMT.squeeze())))
+
             for ilonsel,lonsel in enumerate(AllData.output_lon):
 
                 outputtrainall, _, outputtestall = AllData.trainvaltest_histrecordmax_outputonly(self.trainvaltest,self.experiment_era,self.baselineera,self.inputlength,self.outputavgtime,latsel,lonsel)
@@ -550,8 +625,16 @@ class HistoricMax:
 
                             lr_coeffs[ilatsel,ilonsel] = model.coef_[0]
 
+                    if len(glob.glob(lr_pred_file))==0:
+                        lr_preds[0,ilonsel] = all_lr_pred.squeeze()[1:]
+                        lr_preds[1,ilonsel] = all_lr_true.squeeze()[1:]
+
                     lr_accuracy_all[ilatsel,ilonsel] = helpers.confacc(np.round(all_lr_pred.squeeze())[1:],all_lr_true.squeeze()[1:],all_lr_conf[1:])
                     bs_lr_all[ilatsel,ilonsel] = helpers.brierscore(all_lr_pred.squeeze()[1:],all_lr_true.squeeze()[1:])
+
+            if len(glob.glob(lr_pred_file))==0:
+                with open(lr_pred_file,'wb') as f:
+                    pickle.dump(lr_preds,f)
 
         self.lr_coeffs = lr_coeffs
 
@@ -660,6 +743,9 @@ class HistoricMax:
         lr_tp = np.empty((len(AllObs.output_lat),len(AllObs.output_lon)))+np.nan
         lr_fp = np.empty((len(AllObs.output_lat),len(AllObs.output_lon)))+np.nan
 
+        cnn_precision_positiveclass = np.empty((len(AllObs.output_lat),len(AllObs.output_lon)))+np.nan
+        lr_precision_positiveclass = np.empty((len(AllObs.output_lat),len(AllObs.output_lon)))+np.nan
+
         for ilat,lat in enumerate(AllObs.output_lat):
             for ilon,lon in enumerate(AllObs.output_lon):
 
@@ -704,6 +790,8 @@ class HistoricMax:
                         cnn_obs_bs[ilat,ilon] = helpers.brierscore(obspredavg.squeeze(),obsoutput.squeeze())
                         cnn_obs_firstpositive[ilat,ilon] = helpers.firstpositive(obspredavg,obsinputgmt)
                         
+                        cnn_precision_positiveclass[ilat,ilon] = np.sum(1*((obspredclass==obsoutput)&(obspredclass==1)))/np.sum(1*(obspredclass==1))
+
                         lrmodelload = "lr_models/"+self.modelfilefront + "LogisticRegression_avgtime_"+str(self.outputavgtime)+"_lat_"+str(lat)+"_lon_"+str(lon)+".joblib"
                         lrmodel = joblib.load(lrmodelload)
 
@@ -717,11 +805,16 @@ class HistoricMax:
                         lr_tp[ilat,ilon] = np.sum(1*((lrpredclass==obsoutput)&(lrpredclass==1)))
                         lr_fp[ilat,ilon] = np.sum(1*((lrpredclass!=obsoutput)&(lrpredclass==1)))
 
+                        lr_precision_positiveclass[ilat,ilon] = np.sum(1*((lrpredclass==obsoutput)&(lrpredclass==1)))/np.sum(1*(lrpredclass==1))
+
         self.cnn_tp = cnn_tp
         self.cnn_fp = cnn_fp
 
         self.lr_tp = lr_tp
         self.lr_fp = lr_fp
+
+        self.cnn_precision = cnn_precision_positiveclass
+        self.lr_precision = lr_precision_positiveclass
 
         return [cnn_obs_accuracy, cnn_obs_bs, cnn_obs_firstpositive],[lr_obs_accuracy, lr_obs_bs, lr_obs_firstpositive]
 
@@ -783,3 +876,111 @@ class HistoricMax:
                 predictions = pickle.load(f)
             
             self.cnnpred = predictions[ilonsel] # 2 models x ntestsample predictions
+
+def BlockBootStrap(analysisparams,latvec,lonvec,modelfilefront,nboots):
+        
+    outputavgtime = analysisparams["outputavgtime"]
+
+    bs_cnn_boots = np.empty((len(latvec),len(lonvec),nboots))+np.nan
+    bs_lr_boots = np.empty((len(latvec),len(lonvec),nboots))+np.nan
+
+    for ilatsel,latsel in enumerate(latvec):
+
+        if latsel < -70:
+            print('oops no south pole')
+        else:
+
+            cnnpredfileopen = "predictions/"+modelfilefront+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(latsel)+"_testing.pkl" # (nlon,nmodels=3,nsamples=3600ish)
+            truepredfileopen = "predictions/"+modelfilefront+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(latsel)+"_truetesting.pkl" # (nlon,nsamples=3600ish)
+            lrpredfileopen = "predictions/"+modelfilefront+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(latsel)+"_logisticregression.pkl" #((pred,true),nlon,nsamples=3600ish)
+
+            with open(cnnpredfileopen,'rb') as f:
+                cnnpred = pickle.load(f)
+                cnnpred = np.mean(cnnpred,axis=1)            
+
+            with open(truepredfileopen,'rb') as f:
+                cnntrue = pickle.load(f)                        
+
+            with open(lrpredfileopen,'rb') as f:
+                lrpredtrue = pickle.load(f)
+                lrpred = lrpredtrue[0]
+                lrtrue = lrpredtrue[1]
+
+            bs_cnn_boots[ilatsel,:,:], bs_lr_boots[ilatsel,:,:] = compare_models(cnnpred,lrpred,cnntrue,lrtrue,outputavgtime,nboots)
+
+    return bs_cnn_boots,bs_lr_boots
+
+
+def compare_models(preds_cnn,preds_lr,truth_cnn,truth_lr,leadtime,nboots):
+
+    """
+    Compare CNN to logistic regression using a block bootstrap of length leadtime
+        preds_cnn: CNN predictions, longitude x sample 
+        preds_lr: logistic regresion predictions, longitude x sample 
+        truth: grountruths for CNN, longitude x sample 
+        leadtime: outputavgtime for the predictions
+        nboots: number of time to calculate the bootstrap
+        """
+
+    nsamps = preds_cnn.shape[-1] # total number of samples
+    samplelength = int(preds_lr.shape[-1]/leadtime) # number to grab in bootstrap
+
+    bs_cnn_boots = np.empty((36,nboots)) # longitude x bootnumber
+    bs_lr_boots = np.empty((36,nboots)) # longitude x boot number
+
+    for iboot in range(nboots):
+
+        samplesel = np.random.choice(nsamps-leadtime,samplelength,replace=True)
+        samplemat = samplesel[:,np.newaxis]+np.arange(leadtime)
+        allsamps = samplemat.flatten()
+
+        bs_cnn_boots[:,iboot] = np.mean(np.square(preds_cnn[:,allsamps]-truth_cnn[:,allsamps]),axis=-1)
+        bs_lr_boots[:,iboot] = np.mean(np.square(preds_lr[:,allsamps]-truth_lr[:,allsamps]),axis=-1)
+    
+    return bs_cnn_boots,bs_lr_boots
+
+def nino34(analysisparams,AllObs):
+
+    inputlength = analysisparams["inputlength"]
+    outputavgtime = analysisparams["outputavgtime"]
+    experiment_era_obs = analysisparams["experiment_era_obs"]
+    obstimerange = analysisparams["obstimerange"]
+
+    obssst = AllObs.allinput
+    obslon = np.arange(2,362,4)
+    obslat = np.arange(-88,92,4)
+
+    obs34reg = obssst[:,(obslat>-5)&(obslat<5),]
+    obs34reg = obs34reg[:,:,(obslon>190)&(obslon<240)]
+
+    nino34 = np.mean(obs34reg,axis=(1,2))
+
+    cut1 = experiment_era_obs[0]-obstimerange[0]
+
+    nino34out = nino34[cut1+inputlength:-1*outputavgtime]
+
+    return nino34out
+
+def grabsst(analysisparams,AllObs):
+
+    experiment_era_obs = analysisparams["experiment_era_obs"]
+    obstimerange = analysisparams["obstimerange"]
+
+    obssst = AllObs.allinput
+    cut1 = experiment_era_obs[0]-obstimerange[0]
+
+    obssst_cut = obssst[cut1:]
+
+    return obssst_cut
+
+def grabt2m(analysisparams,AllObs):
+
+    experiment_era_obs = analysisparams["experiment_era_obs"]
+    obstimerange = analysisparams["obstimerange"]
+
+    obst2m = AllObs.alloutput
+    cut1 = experiment_era_obs[0]-obstimerange[0]
+
+    obst2m_cut = obst2m[cut1:]
+
+    return obst2m_cut
