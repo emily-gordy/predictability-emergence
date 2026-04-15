@@ -1,4 +1,5 @@
 include { train_predict } from '../../modules/train_predict/main.nf'
+include { basepred } from '../../modules/basepred/main.nf'
 // include { evalnn } from '../../modules/evalnn/main.nf'
 
 workflow MODEL_TRAINING {
@@ -52,12 +53,16 @@ workflow MODEL_TRAINING {
         .view { v -> "${v[3]} is a top model for ${v[1]}/${v[2]}: ${v[0]}"}
 
 
+    // calculate baselines 
+    basepred()
+
     // add evalnn step
 
     emit: // Specify the outputs you want published into the output directory
         model = train_predict.out.model
         metrics = train_predict.out.metrics
-        // baseline_pred = evalnn.out.baseline_pred
+
+        baseline_pred = basepred.out.baseline_pred
         // model_pred = evalnn.out.model_pred
 
 }

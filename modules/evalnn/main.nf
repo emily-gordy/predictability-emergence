@@ -5,7 +5,7 @@ process evalnn {
 
     output:
     path "MPI_recordtemp_avgtime_${params.outputavgtime}_allssps_lat_${lat}_testing.pkl", emit: model_pred
-    path "MPI_recordtemp_avgtime_${params.outputavgtime}_allssps_lat_${lat}_truetesting.pkl", emit: baseline_pred
+    // path "MPI_recordtemp_avgtime_${params.outputavgtime}_allssps_lat_${lat}_truetesting.pkl", emit: baseline_pred
 
     script:
     """

@@ -118,7 +118,7 @@ workflow {
     publish: // Specify the outputs you want published into the output directory
         model = MODEL_TRAINING.out.model
         metrics = MODEL_TRAINING.out.metrics
-        // baseline_pred = MODEL_TRAINING.out.baseline_pred
+        baseline_pred = MODEL_TRAINING.out.baseline_pred
         // model_pred = MODEL_TRAINING.out.model_pred
 }
 
@@ -131,9 +131,9 @@ output {
         path 'metrics'
     }
 
-    // baseline_pred { // Specify the output directory for the baseline predictions
-    //     path 'predictions'
-    // }
+    baseline_pred { // Specify the output directory for the baseline predictions
+        path 'predictions'
+    }
 
     // model_pred { // Specify the output directory for the model predictions
     //     path 'predictions'
