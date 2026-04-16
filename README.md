@@ -82,7 +82,7 @@ a path.
 
 Decide whether the new process should be part of the subworkflow or the main workflow. If in the main workflow section
 then: (1) include the module (top of the file) and add the call in the workflow section. Nextflow will figure out which
-process can be run form the input/output. Note the `publish` field and `output` section, these determine what needs to 
+process can be run from the input/output. Note the `publish` field and `output` section, these determine what needs to 
 be saved and where.
 
 
