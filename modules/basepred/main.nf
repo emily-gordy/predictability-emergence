@@ -12,4 +12,4 @@ process basepred {
         --config ${params.common_config} \
         --data_dir ${params.data_dir}
     """
-
+}
