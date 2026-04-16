@@ -52,11 +52,12 @@ workflow MODEL_TRAINING {
         }
         .view { v -> "${v[3]} is a top model for ${v[1]}/${v[2]}: ${v[0]}"}
 
+    // group over latitudes 
+
+    // add evalnn step
 
     // calculate baselines 
     basepred()
-
-    // add evalnn step
 
     emit: // Specify the outputs you want published into the output directory
         model = train_predict.out.model
