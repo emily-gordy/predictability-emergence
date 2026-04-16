@@ -4,7 +4,7 @@ process basepred {
     // path 
 
     output:
-    path "prediction/*.csv", emit: baseline_pred // possibly refine later
+    path "predictions/*.csv", emit: baseline_pred // possibly refine later
 
     script:
     """
