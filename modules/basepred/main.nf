@@ -4,11 +4,11 @@ process basepred {
     // path 
 
     output:
-    path "*.csv", emit: baseline_pred // possibly refine later
+    path "predictions/*.csv", emit: baseline_pred // possibly refine later
 
     script:
     """
-    basepred 
+    basepred \
         --config ${params.common_config} \
         --data_dir ${params.data_dir}
     """
