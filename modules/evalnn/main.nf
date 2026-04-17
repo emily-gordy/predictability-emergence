@@ -6,6 +6,7 @@ process evalnn {
 
     output:
     path "*.npy", emit: model_pred
+    // maybe declare the json file to be output?
 
     script:
     """
