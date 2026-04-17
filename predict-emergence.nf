@@ -119,7 +119,7 @@ workflow {
         model = MODEL_TRAINING.out.model
         metrics = MODEL_TRAINING.out.metrics
         baseline_pred = MODEL_TRAINING.out.baseline_pred
-        // model_pred = MODEL_TRAINING.out.model_pred
+        model_pred = MODEL_TRAINING.out.model_pred // output of evalnn
 }
 
 output {
@@ -135,7 +135,7 @@ output {
         path 'predictions'
     }
 
-    // model_pred { // Specify the output directory for the model predictions
-    //     path 'predictions'
-    // }
+    model_pred { // Specify the output directory for the model predictions
+         path 'predictions'
+    }
 }

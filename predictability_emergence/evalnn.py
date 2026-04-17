@@ -97,12 +97,6 @@ def main():
 
     # options specific to this script
     parser.add_argument("--batch_size", type=int, default=128)
-    parser.add_argument("--lr", type=float, default=0.05)
-    # parser.add_argument("--ridge_pen", type=float, default=1e-6) # is this used?
-    parser.add_argument("--lr_patience", type=int, default=7)
-    parser.add_argument("--early_stopping_patience", type=int, default=20)
-    parser.add_argument("--epochs", type=int, default=200)
-    parser.add_argument("--momentum", type=float, default=0.5)
 
     parser.add_argument("--data_dir", type=str, default="../data/")
     parser.add_argument("--output_dir", type=str, default="predictions/")
@@ -128,7 +122,6 @@ def main():
     n_train = args.n_train
     n_val = args.n_val
     test = np.arange(args.test[0],args.test[1])
-    batch_size = args.batch_size
     data_dir = args.data_dir
     output_dir = args.output_dir
     model_dir = args.model_dir

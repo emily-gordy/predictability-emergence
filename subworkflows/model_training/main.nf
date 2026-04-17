@@ -1,6 +1,6 @@
 include { train_predict } from '../../modules/train_predict/main.nf'
 include { basepred } from '../../modules/basepred/main.nf'
-// include { evalnn } from '../../modules/evalnn/main.nf'
+include { evalnn } from '../../modules/evalnn/main.nf'
 
 workflow MODEL_TRAINING {
     take:
@@ -9,6 +9,7 @@ workflow MODEL_TRAINING {
     main:
     train_predict(input_ch)
 
+    // channels
     models = train_predict.out.model
             .map {
                 id, lat, lon, seed, file ->
@@ -52,18 +53,23 @@ workflow MODEL_TRAINING {
         }
         .view { v -> "${v[3]} is a top model for ${v[1]}/${v[2]}: ${v[0]}"}
 
-    // group over latitudes 
-
-    // add evalnn step
+    // create input channel for evaln process
+    lats = metrics
+        .map { id, lat, lon, seed, score, metrics, model -> 
+               [lat, metrics, model]
+        }
+        .groupTuple(by: 0)
 
     // calculate baselines 
     basepred()
+    // make predictions
+    evalnn(lats)
 
     emit: // Specify the outputs you want published into the output directory
         model = train_predict.out.model
         metrics = train_predict.out.metrics
 
         baseline_pred = basepred.out.baseline_pred
-        // model_pred = evalnn.out.model_pred
+        model_pred = evalnn.out.model_pred
 
 }
