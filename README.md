@@ -86,6 +86,12 @@ then: (1) include the module (top of the file) and add the call in the workflow 
 process can be run from the input/output. Note the `publish` field and `output` section, these determine what needs to 
 be saved and where.
 
+Example: adding evalnn
+
+ 1. Create `modules/evalnn/main.nf`
+ 2. Include `../../modules/evalnn/main.nf` in subworkflows/model_training/main.nf. Create an in[ut channel for `evalnn`. Add the the `evalnn` task. Emit the model prediction (`model_pred`).
+ 3. Save the `model_pred` in the predictions directory.
+ 
 
 ## Running on Mahuika
 

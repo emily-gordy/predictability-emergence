@@ -1,6 +1,6 @@
 include { train_predict } from '../../modules/train_predict/main.nf'
 include { basepred } from '../../modules/basepred/main.nf'
-// include { evalnn } from '../../modules/evalnn/main.nf'
+include { evalnn } from '../../modules/evalnn/main.nf'
 
 workflow MODEL_TRAINING {
     take:
@@ -9,21 +9,22 @@ workflow MODEL_TRAINING {
     main:
     train_predict(input_ch)
 
-    models = train_predict.out.model
+    // channels
+    models_ch = train_predict.out.model
             .map {
                 id, lat, lon, seed, file ->
                 [[id:id, lat:lat, lon:lon, seed:seed], file]
             }
 
     // metrics channel adjusted to group by (lat, lon) and pick top N within each group
-    metrics = train_predict.out.metrics
+    metrics_ch = train_predict.out.metrics
         .map { id, lat, lon, seed, file ->
             // extract score from metrics JSON (same as your code)
             def score = file.splitJson()[4]['value']
             [[id:id, lat:lat, lon:lon, seed:seed], score as double, file]
         }
         // join to add the corresponding model path using the same key (the meta map)
-        .join(models, by: [0], remainder: true)
+        .join(models_ch, by: [0], remainder: true)
         // Build tuples of: [ key=(lat,lon), payload={id,lat,lon,seed,score,metrics,model} ]
         .map { meta, score, metricsFile, modelFile ->
             def payload = [
@@ -52,18 +53,23 @@ workflow MODEL_TRAINING {
         }
         .view { v -> "${v[3]} is a top model for ${v[1]}/${v[2]}: ${v[0]}"}
 
-    // group over latitudes 
-
-    // add evalnn step
+    // create input channel for evalnn process
+    lats_ch = metrics_ch
+        .map { id, lat, lon, seed, score, metrics, model -> 
+               [lat, metrics, model]
+        }
+        .groupTuple(by: 0) // build a list of all combinations of lat, metrics and model
 
     // calculate baselines 
     basepred()
+    // make predictions
+    evalnn(lats_ch)
 
     emit: // Specify the outputs you want published into the output directory
         model = train_predict.out.model
         metrics = train_predict.out.metrics
 
         baseline_pred = basepred.out.baseline_pred
-        // model_pred = evalnn.out.model_pred
+        model_pred = evalnn.out.model_pred
 
 }
