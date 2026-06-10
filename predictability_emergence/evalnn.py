@@ -96,8 +96,10 @@ def main():
     # just in case parameters
     parser.add_argument("--outputavgtime", type=int, default=5)
     parser.add_argument("--ssps", nargs="+", default=["126", "245", "370", "585"])
-    parser.add_argument("--experiment_era", nargs=2, type=int, default=[1950, 2100])
-    parser.add_argument("--baseline_era", nargs=2, type=int, default=[1900, 1950])
+    # parser.add_argument("--experiment_era", nargs=2, type=int, default=[1950, 2100])
+    # parser.add_argument("--baseline_era", nargs=2, type=int, default=[1900, 1950])
+    parser.add_argument("--experiment_era", nargs=2, type=int, default=[1980, 2100])
+    parser.add_argument("--baseline_era", nargs=2, type=int, default=[1950, 1980])
     parser.add_argument("--input_length", type=int, default=10)
     parser.add_argument("--in_res", type=int, default=4)
     parser.add_argument("--out_res", type=int, default=10)
@@ -187,17 +189,17 @@ def main():
 
     alltestpred = np.zeros((len(AllData.output_lon),n_best,len(inputtestGMT)))+np.nan
     alltesttrue = np.zeros((len(AllData.output_lon),len(inputtestGMT)))+np.nan
-    testpredfile = "predictions/"+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_testing.pkl"
-    testtruefile = "predictions/"+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_truetesting.pkl"
+    testpredfile = "../predictions/"+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_testing.pkl"
+    testtruefile = "../predictions/"+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_truetesting.pkl"
 
     for ilon,lon in enumerate(AllData.output_lon):
 
         print(lon)
 
-        metricsout = "metrics/"+ model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_seed*.json"
+        metricsout = "../metrics/"+ model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_seed*.json"
         filelist = glob.glob(metricsout)
 
-        testmetricsout = "metrics/"+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_testing.json"
+        testmetricsout = "../metrics/"+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_testing.json"
 
         if len(filelist)!=0:
             logging.info("Models exist, proceeding")
@@ -219,7 +221,7 @@ def main():
             for iseed,seed in enumerate(bestseeds):
                 # load the model
 
-                loadfile = "models/"+ model_file_front+ "avgtime_"+ str(outputavgtime)+ "_allssps_lat_"+ str(lat)+ "_lon_"+ str(lon)+ "_seed_"+ str(seed)+ ".pt"
+                loadfile = "../models/"+ model_file_front+ "avgtime_"+ str(outputavgtime)+ "_allssps_lat_"+ str(lat)+ "_lon_"+ str(lon)+ "_seed_"+ str(seed)+ ".pt"
                 cnn = buildmodel.CNNclassifier(inputtest, inputtestGMT, 2).to('cpu')
                 cnn.load_state_dict(torch.load(loadfile,map_location=torch.device('cpu'), weights_only=False))
                 cnn.to(device)
