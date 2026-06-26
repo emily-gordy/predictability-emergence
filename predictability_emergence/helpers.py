@@ -71,3 +71,15 @@ def brierscore(preds,true):
     bs = np.mean((preds.squeeze()-true.squeeze())**2)
 
     return bs
+
+def precision(preds,true,predclass):
+
+    precisionout = np.mean((preds[preds==predclass]==true[preds==predclass]))
+
+    return precisionout
+
+def recall(preds,true,predclass):
+
+    precisionout = np.mean((preds[true==predclass]==true[true==predclass]))
+
+    return precisionout

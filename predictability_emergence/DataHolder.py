@@ -1584,6 +1584,8 @@ class ERA5InputOutput:
         # control for season
         if self.season==2:
             cutinput = cutinput[:-1] # time x lat x lon
+        
+        self.cutinput=cutinput
         # remove mean from sample dimension
         inputmean = np.mean(cutinput,axis=1,keepdims=True)
         anominput = cutinput-inputmean
@@ -1811,6 +1813,7 @@ class ERA5InputOutput:
         # control for season
         if self.season==2:
             cutinput = cutinput[:-1] # time x lat x lon
+        self.cutinput=cutinput
         # remove mean from sample dimension
         inputmean = np.mean(cutinput,axis=1,keepdims=True)
         anominput = cutinput-inputmean
