@@ -182,9 +182,9 @@ def main():
 
     trainvaltest = [trainval[:n_train],trainval[n_train:n_train+n_val],test]
 
-    _, _, alltest = AllData.trainvaltest_recordmax(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,dummylon)
+    _, _, alltest = AllData.trainvaltest_recordmax_withrecordmax(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,dummylon)
 
-    _, inputtestGMT, _ = DataHolder.tensortime_onehot(alltest,nclasses=2)
+    _, inputtestGMT, _ = DataHolder.tensortime_onehot_withrecordmax(alltest,nclasses=2)
 
     alltestpred = np.zeros((len(AllData.output_lon),n_best,len(inputtestGMT)))+np.nan
     alltesttrue = np.zeros((len(AllData.output_lon),len(inputtestGMT)))+np.nan

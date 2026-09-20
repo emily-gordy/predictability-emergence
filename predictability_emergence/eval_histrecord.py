@@ -104,7 +104,7 @@ def main():
     parser.add_argument("--out_res", type=int, default=10)
     parser.add_argument("--time_range", nargs=2, type=int, default=[1900, 2100])
     parser.add_argument("--file_front", type=str, default="MPI_")
-    parser.add_argument("--model_file_front", type=str, default="MPI_recordtemp_")
+    # parser.add_argument("--model_file_front", type=str, default="MPI_recordtemp_")
     parser.add_argument("--input_var", type=str, default="tos")
     parser.add_argument("--output_var", type=str, default="tas")
     parser.add_argument("--n_train", type=int, default=25)
@@ -132,7 +132,7 @@ def main():
     out_res = args.out_res
     time_range = args.time_range
     file_front = args.file_front
-    model_file_front = args.model_file_front
+    # model_file_front = args.model_file_front
     input_var = args.input_var
     output_var = args.output_var
     n_train = args.n_train
@@ -174,6 +174,22 @@ def main():
     AllData = DataHolder.MPIInputOutput_SSPlist(params,ssp_list)
     # landmask = np.isnan(AllData.alloutput[0][0,0])
 
+    obstimerange = [1940,2025]
+    experiment_era_obs = [1970,2025]
+    baselineera_obs = [1950,1980]
+
+    obsparams = {
+    "outres": out_res,
+    "timerange": time_range,
+    "filefront": file_front,
+    "inres": in_res,
+    "inputvar":input_var,
+    "outputvar":output_var,
+    "obstimerange":obstimerange,
+    "data_dir":data_dir
+}
+    AllObs = DataHolder.ERA5InputOutput(obsparams)
+
     # split data
 
     dummylon = 0
@@ -182,30 +198,32 @@ def main():
 
     trainvaltest = [trainval[:n_train],trainval[n_train:n_train+n_val],test]
 
-    _, _, alltest = AllData.trainvaltest_recordmax(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,dummylon)
+    _, _, alltest = AllData.trainvaltest_histrecordmax(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,dummylon)
 
-    _, inputtestGMT, _ = DataHolder.tensortime_onehot(alltest,nclasses=2)
+    _, inputtestGMT, _ = DataHolder.tensortime_onehot_withrecordmax(alltest,nclasses=2)
 
     alltestpred = np.zeros((len(AllData.output_lon),n_best,len(inputtestGMT)))+np.nan
     alltesttrue = np.zeros((len(AllData.output_lon),len(inputtestGMT)))+np.nan
-    testpredfile = "../predictions/"+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_testing.pkl"
-    testtruefile = "../predictions/"+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_truetesting.pkl"
+    testpredfile = "../predictions/MPI_histrecord_avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_testing.pkl"
+    testtruefile = "../predictions/MPI_histrecord_avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_truetesting.pkl"
 
     for ilon,lon in enumerate(AllData.output_lon):
 
         print(lon)
 
-        metricsout = "../metrics/"+ model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_seed*.json"
-        filelist = glob.glob(metricsout)
+        metricsin = "../metrics/MPI_recordtemp_avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_seed*.json"
+        filelist = glob.glob(metricsin)
 
-        testmetricsout = "../metrics/"+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_testing.json"
+        testmetricsout = "../metrics/MPI_histrecord_avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_testing.json"
 
         if len(filelist)!=0:
             logging.info("Models exist, proceeding")
 
-            _, _, alltest = AllData.trainvaltest_recordmax_withrecordmax(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,lon)
+            _, _, obsinputpriorrecord, _ = AllObs.obs_histrecordmax(experiment_era_obs,baselineera_obs,input_length,outputavgtime,lat,lon)
+            _, _, alltest = AllData.trainvaltest_histrecordmax(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,lon)
 
             inputtest, inputtestGMT, outputtest = DataHolder.tensortime_onehot_withrecordmax(alltest,nclasses=2)
+            inputtestGMT[:,1] = obsinputpriorrecord[0,0]*torch.ones(inputtestGMT[:,1].shape)
             bestseeds = get_best_files(filelist,n_best)
             print(bestseeds)
 
@@ -220,7 +238,7 @@ def main():
             for iseed,seed in enumerate(bestseeds):
                 # load the model
 
-                loadfile = "../models/"+ model_file_front+ "avgtime_"+ str(outputavgtime)+ "_allssps_lat_"+ str(lat)+ "_lon_"+ str(lon)+ "_seed_"+ str(seed)+ ".pt"
+                loadfile = "../models/MPI_recordtemp_avgtime_"+ str(outputavgtime)+ "_allssps_lat_"+ str(lat)+ "_lon_"+ str(lon)+ "_seed_"+ str(seed)+ ".pt"
                 cnn = buildmodel.CNNclassifier(inputtest, inputtestGMT, 2).to('cpu')
                 cnn.load_state_dict(torch.load(loadfile,map_location=torch.device('cpu'), weights_only=False))
                 cnn.to(device)

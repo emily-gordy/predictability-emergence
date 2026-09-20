@@ -1388,7 +1388,6 @@ class MPIInputOutput_SSPlist:
 
         return [inputtrainfull,  inputtrainGMTfull, outputtrainfull,], [inputvalfull, inputvalGMTfull, outputvalfull,], [inputtestfull, inputtestGMTfull,  outputtestfull] 
 
-
 class ERA5InputOutput:
     def __init__(self,params):
 
@@ -1620,6 +1619,7 @@ class ERA5InputOutput:
         regionalmean = np.mean(histsel[gmthistoricalinds[0]:gmthistoricalinds[1]],axis=0)
 
         self.baseline = baseline
+        self.regionalmean = regionalmean
         
         outputsummer = histsel[chopind:]
         recordtemps = find_records(outputsummer,baseline)
@@ -1733,6 +1733,7 @@ class ERA5InputOutput:
         regionalmean = np.mean(histsel[gmthistoricalinds[0]:gmthistoricalinds[1]],axis=0)
 
         self.baseline = baseline
+        self.regionalmean = regionalmean
         
         outputsummer = histsel[chopind:]
         recordtemps = find_records(outputsummer,baseline)
@@ -1994,6 +1995,28 @@ class ERA5InputOutput:
         self.allevents = nevents
 
         return anominput,avggmt,maxpriorrecord,outputrecordsummer       
+
+    def obs_gmt_correction(self):
+ 
+        gmthistoricalinds = [gmthistorical[0]-self.obstimerange[0],gmthistorical[1]-self.obstimerange[0]]
+        gmt = self.allGMT
+
+        gmtCB = [1991,2020]
+        gmthistoricalinds_CB = [gmtCB[0]-self.obstimerange[0],gmtCB[1]-self.obstimerange[0]]
+
+        # now work with GMT data
+        # compute historical era mean 1960-1990
+        inputgmtmean = np.mean(gmt[gmthistoricalinds[0]:gmthistoricalinds[1]]) # just a number
+
+        # compute historical era mean 1991-2020
+        inputgmtmean_CB = np.mean(gmt[gmthistoricalinds_CB[0]:gmthistoricalinds_CB[1]]) 
+
+        ERA5correction = 0.88
+
+        inputgmtmean_PI = inputgmtmean_CB-ERA5correction
+
+        return inputgmtmean,inputgmtmean_CB,inputgmtmean_PI
+
 
 def tensortime_multihot(listofmatrices):
 
