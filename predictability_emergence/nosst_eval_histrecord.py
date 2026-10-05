@@ -181,17 +181,17 @@ def main():
 
     alltestpred = np.zeros((len(AllData.output_lon),n_best,len(inputtestGMT)))+np.nan
     alltesttrue = np.zeros((len(AllData.output_lon),len(inputtestGMT)))+np.nan
-    testpredfile = "../predictions/MPI_histrecordavgtime_"+str(outputavgtime)+"_allssps_allseeds_lat_"+str(lat)+"_testing.pkl"
-    testtruefile = "../predictions/MPI_histrecordavgtime_"+str(outputavgtime)+"_allssps_allseeds_lat_"+str(lat)+"_truetesting.pkl"
+    testpredfile = "../predictions/MPI_histrecord_nosstavgtime_"+str(outputavgtime)+"_allssps_allseeds_lat_"+str(lat)+"_testing.pkl"
+    testtruefile = "../predictions/MPI_histrecord_nosstavgtime_"+str(outputavgtime)+"_allssps_allseeds_lat_"+str(lat)+"_truetesting.pkl"
 
     for ilon,lon in enumerate(AllData.output_lon):
 
         print(lon)
 
-        metricsout = "../metrics/MPI_recordtemp_avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_seed*.json"
+        metricsout = "../metrics/"+ model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_seed*.json"
         filelist = glob.glob(metricsout)
 
-        testmetricsout = "../metrics/MPI_histrecordavgtime_"+str(outputavgtime)+"_allssps_allseeds_lat_"+str(lat)+"_lon_"+str(lon)+"_testing.json"
+        testmetricsout = "../metrics/MPI_histrecord_nosstavgtime_"+str(outputavgtime)+"_allssps_allseeds_lat_"+str(lat)+"_lon_"+str(lon)+"_testing.json"
 
         if len(filelist)!=0:
             logging.info("Models exist, proceeding")

@@ -3,14 +3,14 @@
 #SBATCH --job-name=trainnn
 #SBATCH --error=/nesi/nobackup/uoa04506/job_output/trainnn_%a.err
 #SBATCH --output=/nesi/nobackup/uoa04506/job_output/trainnn_%a.out
-#SBATCH --array=73-288
+#SBATCH --array=1-9
 #SBATCH --cpus-per-task=8
 #SBATCH --ntasks=1
-#SBATCH --mem=40GB
+#SBATCH --mem=20GB
 #SBATCH --mail-type=ALL
 #SBATCH --mail-user=emily.gordon@auckland.ac.nz
-#SBATCH --time=4:00:00
-#SBATCH --partition=milan
+#SBATCH --time=1:00:00
+#SBATCH --partition=genoa,milan
 
 source ~/miniconda3/bin/activate
 conda activate ml-env

@@ -18,4 +18,4 @@ cd /nesi/nobackup/uoa04506/predictability-emergence/predictability_emergence/
 
 INDEX=$(( -70 + SLURM_ARRAY_TASK_ID * 10 ))
 
-python3 -u eval_10seeds_histrecord.py --lat=$INDEX --outputavgtime=10
+python3 eval_10seeds_recordmax.py --lat=$INDEX --outputavgtime=10
