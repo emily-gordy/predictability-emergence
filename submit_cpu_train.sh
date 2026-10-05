@@ -14,7 +14,5 @@
 
 source ~/miniconda3/bin/activate
 conda activate ml-env
-
-export DATALOADER_WORKERS=$((SLURM_CPUS_PER_TASK - 2))
-
-python3 -u trainnn.py $SLURM_ARRAY_TASK_ID
+cd /nesi/nobackup/uoa04506/predictability-emergence/predictability_emergence/
+python3 nosst_trainnn.py --seed=$SLURM_ARRAY_TASK_ID --outputavgtime=10
