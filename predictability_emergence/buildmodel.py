@@ -290,3 +290,34 @@ class CNNclassifier(nn.Module):
         x = self.output_layer(x)
         out = self.softmax(x)
         return out
+
+
+class ANNclassifier(nn.Module):
+    def __init__(self,in_data, out_size):
+        super(ANNclassifier, self).__init__()
+        
+        # out_size = out_data.size(-1)
+        self.inputshape = in_data.size()
+        hiddens = [8]
+        
+        self.linear_layers = nn.ModuleList()
+
+        self.linear_layers.append(nn.Linear(in_features=self.inputshape[1], out_features=hiddens[0]))
+        # self.linear_layers.append(nn.BatchNorm1d(num_features=hiddens[0]))
+        self.linear_layers.append(nn.ReLU())
+        
+        for i in range(len(hiddens)-1):   
+            self.linear_layers.append(nn.Linear(in_features=hiddens[i], out_features=hiddens[i+1]))
+            # self.linear_layers.append(nn.BatchNorm1d(num_features=hiddens[i+1]))  
+            self.linear_layers.append(nn.ReLU())
+
+        self.output_layer = nn.Linear(in_features=hiddens[-1], out_features=out_size)
+        self.softmax = nn.Softmax(dim=1)
+        
+    def forward(self, x):
+        x = self.linear_layers[0](x)
+        for dlayer in self.linear_layers[1:]:
+            x = dlayer(x)
+        x = self.output_layer(x)
+        out = self.softmax(x)
+        return out
