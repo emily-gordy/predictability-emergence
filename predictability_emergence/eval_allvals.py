@@ -242,7 +242,7 @@ def main():
 
             print(lon)
 
-            metricsout = "../metrics/"+ model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_seed"+str(seed)+".json"
+            metricsout = "../metrics/"+ model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_seed_"+str(seed)+".json"
             filelist = glob.glob(metricsout)
 
             if len(filelist)!=0:
