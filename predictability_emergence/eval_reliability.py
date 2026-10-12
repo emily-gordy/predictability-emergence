@@ -97,23 +97,30 @@ def confacc(predclass,trueclass,predconf):
 
     return accper
 
-def reliability(p, y, w=None, n_bins=20, strategy="none"):
-    w = np.ones_like(p) if w is None else w
-    edges = (np.quantile(p, np.linspace(0, 1, n_bins+1)) if strategy == "quantile"
-             else np.linspace(0, 1, n_bins+1))
-    idx = np.clip(np.searchsorted(edges, p, side="right") - 1, 0, n_bins-1)
-    out = []
+def reliability(p, y, w=None, n_bins=20, strategy="uniform", edges=None):
+    p = np.asarray(p, float); y = np.asarray(y, float)
+    w = np.ones_like(p) if w is None else np.asarray(w, float)
+
+    if edges is None:
+        edges = (np.quantile(p, np.linspace(0, 1, n_bins + 1)) if strategy == "quantile"
+                 else np.linspace(0, 1, n_bins + 1))
+    n_bins = len(edges) - 1
+    idx = np.clip(np.searchsorted(edges, p, side="right") - 1, 0, n_bins - 1)
+
+    pm = np.full(n_bins, np.nan)
+    om = np.full(n_bins, np.nan)
+    n  = np.zeros(n_bins)
     for b in range(n_bins):
         m = idx == b
-        if m.sum() == 0: continue
-        out.append((np.average(p[m], weights=w[m]),   # mean forecast
-                    np.average(y[m], weights=w[m]),   # observed freq
-                    w[m].sum()))
-    pm, om, n = map(np.array, zip(*out))
-    ece = np.sum(n * np.abs(pm - om)) / n.sum()
+        if w[m].sum() > 0:
+            pm[b] = np.average(p[m], weights=w[m])
+            om[b] = np.average(y[m], weights=w[m])
+            n[b]  = w[m].sum()
 
-    return pm, om, n, ece, edges
-
+    ok = n > 0
+    ece = np.sum(n[ok] * np.abs(pm[ok] - om[ok])) / n[ok].sum()
+    centres = 0.5 * (edges[:-1] + edges[1:])
+    return pm, om, n, ece, centres
 
 def main():
     # setting up logging
@@ -244,11 +251,13 @@ def main():
 
     trainvaltest = [trainval[:n_train],trainval[n_train:n_train+n_val],test]
 
-    predictedmass = np.empty((18,36))+np.nan
-    predictedmass_ann = np.empty((18,36))+np.nan
+    bins = np.linspace(0,1,20)
 
-    observedmass = np.empty((18,36))+np.nan
-    observedmass_ann = np.empty((18,36))+np.nan
+    predictedmass = np.empty((18,36,len(bins)))+np.nan
+    predictedmass_ann = np.empty((18,36,len(bins)))+np.nan
+
+    observedmass = np.empty((18,36,len(bins)))+np.nan
+    observedmass_ann = np.empty((18,36,len(bins)))+np.nan
 
     valmetricsout = "../metrics/"+model_file_front+"avgtime_"+str(outputavgtime)+"_ssp370_validation_reliability_seed"+str(seed)+".pkl"
 
