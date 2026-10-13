@@ -259,61 +259,64 @@ def main():
     observedmass = np.empty((18,36,len(bins)))+np.nan
     observedmass_ann = np.empty((18,36,len(bins)))+np.nan
 
-    valmetricsout = "../metrics/"+model_file_front+"avgtime_"+str(outputavgtime)+"_ssp370_validation_reliability_seed"+str(seed)+".pkl"
-
     for ilat,lat in enumerate(AllData.output_lat):
 
-        for ilon,lon in enumerate(AllData.output_lon):
+        valmetricsout = "../metrics/"+model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_validation_reliability_lat_"+str(lat)+"_seed"+str(seed)+".pkl"
+        filecheck = glob.glob(valmetricsout)
 
-            print(lon)
+        if len(filecheck)==0:
 
-            metricsout = "../metrics/"+ model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_seed_"+str(seed)+".json"
-            filelist = glob.glob(metricsout)
+            for ilon,lon in enumerate(AllData.output_lon):
 
-            if len(filelist)!=0:
-                logging.info("Models exist, proceeding")
+                print(lon)
 
-                _, allval, _ = AllData.trainvaltest_recordmax_withrecordmax(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,lon)
-                
-                inputval, inputvalGMT, outputval = DataHolder.tensortime_onehot_withrecordmax(allval,nclasses=2)
+                metricsout = "../metrics/"+ model_file_front+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_seed_"+str(seed)+".json"
+                filelist = glob.glob(metricsout)
 
-                valtrueclass = np.argmax(outputval.numpy(),axis=1)
-                valimbalance = np.mean(outputval[:,1].numpy())
-                valimbalance = [float((1-valimbalance)),float(valimbalance)]
+                if len(filelist)!=0:
+                    logging.info("Models exist, proceeding")
 
-                print("Test imbalance is %s:%s", valimbalance[0], valimbalance[1])
+                    _, allval, _ = AllData.trainvaltest_recordmax_withrecordmax(trainvaltest,experiment_era,baseline_era,input_length,outputavgtime,lat,lon)
+                    
+                    inputval, inputvalGMT, outputval = DataHolder.tensortime_onehot_withrecordmax(allval,nclasses=2)
 
-                    # load the model
+                    valtrueclass = np.argmax(outputval.numpy(),axis=1)
+                    valimbalance = np.mean(outputval[:,1].numpy())
+                    valimbalance = [float((1-valimbalance)),float(valimbalance)]
 
-                loadfile = "../models/"+ model_file_front+ "avgtime_"+ str(outputavgtime)+ "_allssps_lat_"+ str(lat)+ "_lon_"+ str(lon)+ "_seed_"+ str(seed)+ ".pt"
-                cnn = buildmodel.CNNclassifier(inputval, inputvalGMT, 2).to('cpu')
-                cnn.load_state_dict(torch.load(loadfile,map_location=torch.device('cpu'), weights_only=False))
-                cnn.to(device)
+                    print("Test imbalance is %s:%s", valimbalance[0], valimbalance[1])
 
-                annloadfile = "../models/"+annmodelfilefront+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_seed_"+str(seed)+".pt"
-                ann = buildmodel.ANNclassifier(inputvalGMT, 2).to('cpu')
-                ann.load_state_dict(torch.load(annloadfile,map_location=torch.device('cpu'), weights_only=False))
-                ann.to(device)
+                        # load the model
 
-                with torch.no_grad():
-                    cnn.eval()
-                    valpred = cnn(inputval.to(device), inputvalGMT.to(device)).cpu().numpy()
+                    loadfile = "../models/"+ model_file_front+ "avgtime_"+ str(outputavgtime)+ "_allssps_lat_"+ str(lat)+ "_lon_"+ str(lon)+ "_seed_"+ str(seed)+ ".pt"
+                    cnn = buildmodel.CNNclassifier(inputval, inputvalGMT, 2).to('cpu')
+                    cnn.load_state_dict(torch.load(loadfile,map_location=torch.device('cpu'), weights_only=False))
+                    cnn.to(device)
 
-                    ann.eval()
-                    valpred_ann = ann(inputvalGMT.to(device)).cpu().numpy()
+                    annloadfile = "../models/"+annmodelfilefront+"avgtime_"+str(outputavgtime)+"_allssps_lat_"+str(lat)+"_lon_"+str(lon)+"_seed_"+str(seed)+".pt"
+                    ann = buildmodel.ANNclassifier(inputvalGMT, 2).to('cpu')
+                    ann.load_state_dict(torch.load(annloadfile,map_location=torch.device('cpu'), weights_only=False))
+                    ann.to(device)
 
-                allvalpred = valpred[:,1].squeeze()
-                allvalpred_ann = valpred_ann[:,1].squeeze()
+                    with torch.no_grad():
+                        cnn.eval()
+                        valpred = cnn(inputval.to(device), inputvalGMT.to(device)).cpu().numpy()
 
-                predictedmass[ilat,ilon],observedmass[ilat,ilon],_,_,edges = reliability(allvalpred,valtrueclass,n_bins=20)
-                predictedmass_ann[ilat,ilon],observedmass_ann[ilat,ilon],_,_,edges = reliability(allvalpred_ann,valtrueclass,n_bins=20)
-                
-    with open(valmetricsout,'wb') as f:
-        pickle.dump([predictedmass,
-                     observedmass,
-                     predictedmass_ann,
-                     observedmass_ann,
-                     edges],f)
+                        ann.eval()
+                        valpred_ann = ann(inputvalGMT.to(device)).cpu().numpy()
+
+                    allvalpred = valpred[:,1].squeeze()
+                    allvalpred_ann = valpred_ann[:,1].squeeze()
+
+                    predictedmass[ilat,ilon],observedmass[ilat,ilon],_,_,edges = reliability(allvalpred,valtrueclass,n_bins=20)
+                    predictedmass_ann[ilat,ilon],observedmass_ann[ilat,ilon],_,_,edges = reliability(allvalpred_ann,valtrueclass,n_bins=20)
+                    
+            with open(valmetricsout,'wb') as f:
+                pickle.dump([predictedmass,
+                            observedmass,
+                            predictedmass_ann,
+                            observedmass_ann,
+                            edges],f)
 
     # with open(valpredfile_ann,'wb') as f:
     #     pickle.dump(allvalpred_ann,f)

@@ -66,6 +66,25 @@ def get_best_files(filelist,n_best=3):
 
     return bestseeds
 
+def get_best_seedinds(filelist,seedlist,n_best=3):
+    results = []
+    for file in filelist:
+        with open(file, 'r') as f:
+            results.append(json.load(f))
+    
+    allaccs = np.asarray([results[i]['val_accuracy'] for i in range(len(filelist))])
+    allnulls = np.asarray([results[i]['val_class_imbalance'] for i in range(len(filelist))])
+    allseeds = np.asarray([results[i]['seed'] for i in range(len(filelist))])
+    bestseedinds = np.argsort(allaccs-allnulls)[-n_best:]
+
+    bestseeds = allseeds[bestseedinds]
+    seedinds = []
+    for i in range(n_best):
+        seed1 = np.arange(len(allseeds))[bestseeds[i]==seedlist]
+        seedinds.append(seed1)
+
+    return np.asarray(seedinds)
+
 def brierscore(preds,true):
 
     bs = np.mean((preds.squeeze()-true.squeeze())**2)
